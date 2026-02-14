@@ -3,6 +3,10 @@
 ## 🎮 项目介绍
 结合 micro:bit 陀螺仪动作识别和中文笔划学习的创新教育游戏。
 
+## 🔗 在线演示 (Demo)
+👉 **[点击这里体验游戏](https://strokesyyt1-qmi12nz4m-john-tyys-projects.vercel.app)**
+*(需使用支持 Web Bluetooth 的浏览器，如 Chrome 或 Edge)*
+
 ## 📦 部署到 Vercel
 
 ### 方法 1：通过 GitHub（推荐）
