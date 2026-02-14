@@ -116,33 +116,53 @@
 
         async function testConnection() {
             if (!window.selectedDevice) return;
-            const device = window.selectedDevice;
-            
-            log(`🔗 正在連接到 GATT Server...`, 'info');
+            await connectAndExplore(window.selectedDevice);
+        }
+
+        async function connectAndExplore(device) {
+            log('🔗 正在連接 GATT 服務器...', 'info');
             try {
                 const server = await device.gatt.connect();
-                log(`✅ GATT 連接成功 (Connected: ${device.gatt.connected})`, 'success');
-
-                log(`🔍 正在搜尋 UART 服務 (6e400001-b5a3-f393-e0a9-e50e24dcca9e)...`, 'info');
-                try {
-                    const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-                    log(`✅ 找到 UART 服務！`, 'success');
-
-                    log(`🔍 正在獲取 RX 特徵值...`, 'info');
-                    const characteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
-                    log(`✅ 找到 RX 特徵值！通訊鏈路正常。`, 'success');
-                    log(`🎉 診斷通過！Micro:bit 設置正確。`, 'success');
-                    
-                } catch (serviceError) {
-                    log(`❌ 找不到 UART 服務: ${serviceError.message}`, 'error');
-                    log(`💡 原因分析：\n1. MakeCode 項目中沒有添加 "bluetooth" 擴展\n2. 代碼中沒有調用 "bluetooth.startUartService()"`, 'warn');
+                log('✅ GATT 服務器已連接', 'success');
+                
+                log('🔍 正在枚舉所有服務...', 'info');
+                const services = await server.getPrimaryServices();
+                
+                if (services.length === 0) {
+                    log('⚠️ 未發現任何服務！這通常意味著配對失敗或權限不足。', 'warn');
+                } else {
+                    log(`📋 發現 ${services.length} 個服務:`);
+                    services.forEach(s => {
+                        let name = '未知服務';
+                        if (s.uuid.startsWith('6e400001')) name = 'UART 服務 (目標)';
+                        if (s.uuid.startsWith('00001800')) name = 'Generic Access';
+                        if (s.uuid.startsWith('00001801')) name = 'Generic Attribute';
+                        if (s.uuid.startsWith('e95d93b0')) name = 'Micro:bit DFU (固件升級)';
+                        log(`  - ${s.uuid} (${name})`, 'normal');
+                    });
                 }
 
+                const uartService = services.find(s => s.uuid.startsWith('6e400001'));
+                if (uartService) {
+                    log('🎉 成功找到 UART 服務！', 'success');
+                    await testUart(uartService);
+                } else {
+                    log('❌ 未找到 UART 服務。請檢查 Micro:bit 代碼是否正確添加了藍牙服務，並且項目設置為 "No Pairing Required"。', 'error');
+                }
             } catch (error) {
-                log(`❌ 連接失敗: ${error.message}`, 'error');
-                if (error.message.includes('GATT Server is disconnected')) {
-                    log(`💡 關鍵錯誤：這通常是因為 Micro:bit 安全設置拒絕了連接。\n請務必在 MakeCode 項目設置中開啟 "No Pairing Required"。`, 'warn');
-                }
+                handleError(error);
+            }
+        }
+
+        async function testUart(service) {
+            // 原有的測試邏輯
+            try {
+                log('正在獲取特徵值...', 'info');
+                const characteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e'); // TX
+                log('✅ TX 特徵值獲取成功，準備接收數據...', 'success');
+                // ... (後續測試邏輯)
+            } catch (e) {
+                log('❌ 特徵值獲取失敗: ' + e, 'error');
             }
         }
     </script>
