@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro:bit 藍牙診斷工具 v2</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { color: #333; }
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; color: white; border: none; border-radius: 5px; margin-right: 10px; margin-bottom: 10px; transition: opacity 0.2s; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #ccc !important; cursor: not-allowed; }
+        .btn-scan { background: #007bff; }
+        .btn-name { background: #6610f2; }
+        .btn-test { background: #28a745; }
+        #log { margin-top: 20px; border: 1px solid #ccc; padding: 15px; height: 400px; overflow-y: scroll; background: #1e1e1e; color: #d4d4d4; font-family: monospace; border-radius: 5px; }
+        .success { color: #4caf50; }
+        .error { color: #ff5252; }
+        .info { color: #64b5f6; }
+        .warn { color: #ffb74d; }
+        .tip-box { background: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin-bottom: 20px; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Micro:bit 藍牙診斷工具 v2</h1>
+    
+    <div class="tip-box">
+        <strong>⚠️ 重要提示：</strong>
+        <ul>
+            <li>請務必<strong>關閉 createai.microbit.org</strong> 網頁，藍牙設備不能同時被兩個網頁連接！</li>
+            <li>請拔掉 Micro:bit 的 USB 線（如果只是為了供電可以插著，但不要讓瀏覽器通過 USB 連接它）。</li>
+            <li>確保 Micro:bit 已經重置（按一下背面的 Reset 鍵）。</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>1. 掃描設備</h3>
+        <p>嘗試不同的掃描策略來找到設備。</p>
+        <button class="btn-scan" onclick="scanAll()">📡 掃描所有藍牙設備 (最寬鬆)</button>
+        <button class="btn-name" onclick="scanByName()">🏷️ 僅按名稱掃描 (推薦)</button>
+    </div>
+
+    <div class="card">
+        <h3>2. 測試連接</h3>
+        <p>選中設備後，測試是否能通訊。</p>
+        <button id="btnTest" class="btn-test" onclick="testConnection()" disabled>⚡ 測試 UART 服務連接</button>
+    </div>
+    
+    <div id="log"></div>
+
+    <script>
+        function log(msg, type = 'normal') {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML = `<span style="opacity:0.5">[${time}]</span> ${msg}`;
+            if (type === 'success') div.className = 'success';
+            if (type === 'error') div.className = 'error';
+            if (type === 'info') div.className = 'info';
+            if (type === 'warn') div.className = 'warn';
+            const logDiv = document.getElementById('log');
+            logDiv.appendChild(div);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // 策略1：acceptAllDevices: true
+        async function scanAll() {
+            log('🚀 開始掃描 (策略: 接受所有設備)...', 'info');
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+                });
+                handleDeviceSelected(device);
+            } catch (error) {
+                handleError(error);
+            }
+        }
+
+        // 策略2：只過濾名字前綴
+        async function scanByName() {
+            log('🚀 開始掃描 (策略: 僅過濾名稱 "BBC micro:bit")...', 'info');
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'BBC micro:bit' }],
+                    optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+                });
+                handleDeviceSelected(device);
+            } catch (error) {
+                handleError(error);
+            }
+        }
+
+        function handleDeviceSelected(device) {
+            log(`✅ 發現設備: <strong>${device.name}</strong> (ID: ${device.id})`, 'success');
+            window.selectedDevice = device;
+            document.getElementById('btnTest').disabled = false;
+            
+            // 監聽斷開
+            device.addEventListener('gattserverdisconnected', () => {
+                log(`⚠️ 設備 ${device.name} 已斷開連接`, 'warn');
+                document.getElementById('btnTest').disabled = true;
+            });
+        }
+
+        function handleError(error) {
+            log(`❌ 掃描失敗: ${error.message}`, 'error');
+            if (error.message.includes('User cancelled')) {
+                log('👉 您取消了選擇窗口。', 'warn');
+            } else if (error.message.includes('Bluetooth adapter not available')) {
+                log('👉 找不到藍牙適配器，請檢查電腦藍牙是否開啟。', 'warn');
+            } else if (error.message.includes('No Bluetooth devices found')) {
+                log('👉 找不到設備。請嘗試：\n1. 重啟 Micro:bit\n2. 確保沒有其他網頁(如CreateAI)連著它\n3. 靠近電腦', 'warn');
+            }
+        }
+
+        async function testConnection() {
+            if (!window.selectedDevice) return;
+            const device = window.selectedDevice;
+            
+            log(`🔗 正在連接到 GATT Server...`, 'info');
+            try {
+                const server = await device.gatt.connect();
+                log(`✅ GATT 連接成功 (Connected: ${device.gatt.connected})`, 'success');
+
+                log(`🔍 正在搜尋 UART 服務 (6e400001-b5a3-f393-e0a9-e50e24dcca9e)...`, 'info');
+                try {
+                    const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+                    log(`✅ 找到 UART 服務！`, 'success');
+
+                    log(`🔍 正在獲取 RX 特徵值...`, 'info');
+                    const characteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+                    log(`✅ 找到 RX 特徵值！通訊鏈路正常。`, 'success');
+                    log(`🎉 診斷通過！Micro:bit 設置正確。`, 'success');
+                    
+                } catch (serviceError) {
+                    log(`❌ 找不到 UART 服務: ${serviceError.message}`, 'error');
+                    log(`💡 原因分析：\n1. MakeCode 項目中沒有添加 "bluetooth" 擴展\n2. 代碼中沒有調用 "bluetooth.startUartService()"`, 'warn');
+                }
+
+            } catch (error) {
+                log(`❌ 連接失敗: ${error.message}`, 'error');
+                if (error.message.includes('GATT Server is disconnected')) {
+                    log(`💡 關鍵錯誤：這通常是因為 Micro:bit 安全設置拒絕了連接。\n請務必在 MakeCode 項目設置中開啟 "No Pairing Required"。`, 'warn');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

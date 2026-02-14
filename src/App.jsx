@@ -87,6 +87,8 @@ const App = () => {
   const connectMicrobit = async () => {
     try {
       setConnectionError('');
+      
+      // 使用更寬鬆的過濾條件，只匹配名字前綴
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'BBC micro:bit' }],
         optionalServices: [UART_SERVICE_UUID]
