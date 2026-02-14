@@ -389,49 +389,100 @@ const App = () => {
       </header>
 
       {gameState === GAME_STATE.MENU && (
-        <div className="bg-slate-700 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border border-slate-600">
-          <div className="mb-6 text-6xl animate-bounce">🖌️</div>
-          <h2 className="text-xl font-bold mb-4 text-amber-300">準備好對抗錯字魔了嗎？</h2>
-          <p className="text-slate-300 mb-6 leading-relaxed text-left">
-            拿起你的 Micro:bit，按照正確的筆順揮動，解救被困在迷宮中的文字！
-          </p>
+        <div className="w-full max-w-4xl flex flex-col items-center">
           
-          {/* 連接按鈕 */}
-          {!isConnected && (
-            <button 
-                onClick={connectMicrobit}
-                className="w-full py-3 mb-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg"
-            >
-                <Bluetooth size={20} /> 連接 Micro:bit
-            </button>
-          )}
-
-          {connectionError && (
-              <div className="mb-4 p-3 bg-red-900/50 text-red-200 text-sm rounded-lg">
-                  {connectionError}
+          {/* 未連接時顯示首頁 (Landing Page) */}
+          {!isConnected ? (
+            <div className="text-center space-y-8 animate-fade-in">
+              <div className="mb-8 relative">
+                <div className="text-9xl animate-bounce mb-4">🖌️</div>
+                <div className="absolute top-0 right-0 -mr-12 animate-pulse text-6xl">✨</div>
               </div>
-          )}
-          
-          <div className="bg-slate-800 p-4 rounded-lg mb-6 text-sm text-left space-y-2">
-            <p className="text-gray-400 font-bold">操作指南：</p>
-            <p>➡️ <span className="text-amber-400">橫劃 (一)</span>：向右揮動</p>
-            <p>⬇️ <span className="text-amber-400">豎劃 (丨)</span>：向下揮動</p>
-            <p>↙️ <span className="text-amber-400">撇劃 (丿)</span>：向左下揮動</p>
-            <p>↘️ <span className="text-amber-400">捺劃 (丶)</span>：向右下揮動</p>
-          </div>
-
-          <button 
-            onClick={startGame}
-            disabled={!isConnected} // 強制要求連接，或者提供跳過選項
-            className={`w-full py-3 font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg ${isConnected ? 'bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-amber-500/20' : 'bg-slate-600 text-slate-400 cursor-not-allowed'}`}
-          >
-            <Play size={20} /> 開始冒險
-          </button>
-          
-          {!isConnected && (
-              <p className="mt-4 text-xs text-slate-500 cursor-pointer hover:text-slate-300" onClick={startGame}>
-                  (跳過連接，使用鍵盤測試)
+              
+              <h1 className="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500 drop-shadow-lg">
+                神筆小俠客
+              </h1>
+              
+              <p className="text-xl md:text-2xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
+                揮動你的 Micro:bit 神筆，施展魔法筆劃，<br/>
+                擊退錯字魔，拯救文字世界！
               </p>
+
+              <div className="flex flex-col items-center gap-4 mt-12">
+                <button 
+                  onClick={connectMicrobit}
+                  className="group relative px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white text-xl font-bold rounded-full shadow-lg shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                  <Bluetooth size={28} className="animate-pulse" /> 
+                  <span>連接 Micro:bit 開始遊戲</span>
+                </button>
+                
+                <p className="text-slate-500 text-sm mt-4">
+                  需要使用 Chrome 或 Edge 瀏覽器 • 支持 Micro:bit v2
+                </p>
+
+                {connectionError && (
+                  <div className="mt-4 p-4 bg-red-900/50 border border-red-500/30 text-red-200 rounded-xl flex items-center gap-2 max-w-md">
+                    <Zap size={20} />
+                    <span>{connectionError}</span>
+                  </div>
+                )}
+                
+                <button 
+                   onClick={startGame}
+                   className="mt-8 text-slate-600 hover:text-slate-400 text-sm underline decoration-slate-700 hover:decoration-slate-400 transition-colors"
+                >
+                   (開發者模式：跳過連接直接進入)
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* 已連接時顯示準備大廳 (Lobby) */
+            <div className="bg-slate-700/80 backdrop-blur-md p-8 md:p-12 rounded-3xl shadow-2xl text-center max-w-2xl w-full border border-green-500/30 animate-fade-in-up">
+              <div className="mb-6 inline-flex items-center justify-center w-20 h-20 bg-green-500/20 rounded-full text-green-400 mb-6">
+                 <Bluetooth size={40} />
+              </div>
+              
+              <h2 className="text-3xl font-bold mb-2 text-white">連接成功！</h2>
+              <p className="text-green-300 mb-8 font-medium">神筆已激活，準備戰鬥！</p>
+              
+              <div className="grid grid-cols-2 gap-4 mb-8 text-left">
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-600">
+                  <h3 className="text-amber-400 font-bold mb-2 flex items-center gap-2">
+                    <Sword size={16} /> 攻擊方式
+                  </h3>
+                  <ul className="text-slate-300 text-sm space-y-2">
+                    <li>➡️ 橫劃 (一)：向右揮</li>
+                    <li>⬇️ 豎劃 (丨)：向下揮</li>
+                  </ul>
+                </div>
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-600">
+                   <h3 className="text-amber-400 font-bold mb-2 flex items-center gap-2">
+                    <Shield size={16} /> 防禦技巧
+                  </h3>
+                  <ul className="text-slate-300 text-sm space-y-2">
+                    <li>↙️ 撇劃 (丿)：向左下</li>
+                    <li>↘️ 捺劃 (丶)：向右下</li>
+                  </ul>
+                </div>
+              </div>
+
+              <button 
+                onClick={startGame}
+                className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xl font-bold rounded-xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-500/20"
+              >
+                <Play size={24} fill="currentColor" /> 
+                開始冒險
+              </button>
+              
+              <button 
+                 onClick={onDisconnected}
+                 className="mt-6 text-slate-400 hover:text-red-400 text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                 斷開連接
+              </button>
+            </div>
           )}
         </div>
       )}
