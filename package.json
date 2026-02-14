@@ -1,0 +1,19 @@
+{
+  "name": "stroke-hero-game",
+  "version": "1.0.0",
+  "description": "筆劃俠客 - micro:bit 笔划学习游戏",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "microbit",
+    "education",
+    "chinese",
+    "game",
+    "bluetooth"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
