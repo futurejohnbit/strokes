@@ -33,7 +33,11 @@ npm run dev
 
 ## 🔧 Micro:bit 設置
 
-請參考之前的指南，確保 Micro:bit 已燒錄正確的藍牙代碼。
+**重要提示：如果遇到藍牙連接問題，請查看 [MICROBIT_SETUP.md](./MICROBIT_SETUP.md) 指南，調整項目安全設置。**
+
+1. 確保已安裝藍牙擴展
+2. 在 MakeCode 中開啟「無需配對」模式 (No Pairing Required)
+3. 參考之前的指南燒錄代碼
 
 ## 📊 技術棧
 
