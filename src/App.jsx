@@ -62,6 +62,15 @@ const App = () => {
   const [completedStrokes, setCompletedStrokes] = useState([]);
   const [shakeIntensity, setShakeIntensity] = useState(0);
   
+  // 調試日誌狀態
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // 添加日誌函數
+  const addLog = (msg) => {
+    setDebugLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 19)]);
+  };
+  
   // 藍牙狀態
   const [isConnected, setIsConnected] = useState(false);
   const [deviceName, setDeviceName] = useState('');
@@ -74,12 +83,15 @@ const App = () => {
     const decoder = new TextDecoder('utf-8');
     const data = decoder.decode(value).trim();
     console.log('收到 Micro:bit 數據:', data);
+    addLog(`收到信號: "${data}"`);
 
     const direction = STROKE_MAP[data];
     if (direction) {
-      checkStroke(direction);
+      addLog(`👉 識別為: ${direction}`);
+      processStrokeInput(direction);
     } else {
       console.warn('未知筆劃指令:', data);
+      addLog(`⚠️ 未知指令: ${data}`);
     }
   };
 
@@ -560,8 +572,32 @@ const App = () => {
         </div>
       )}
 
+      {/* 調試模式切換 */}
+      <div className="fixed bottom-4 left-4 z-50">
+         <button 
+           onClick={() => setShowDebug(!showDebug)}
+           className="text-xs bg-black/50 text-white px-2 py-1 rounded hover:bg-black/70"
+         >
+           {showDebug ? '關閉調試' : '開啟調試'}
+         </button>
+      </div>
+
+      {/* 調試面板 */}
+      {showDebug && (
+        <div className="fixed bottom-12 left-4 z-50 w-64 h-64 bg-black/80 text-green-400 font-mono text-xs p-2 rounded overflow-y-auto border border-green-500/30">
+           <div className="font-bold border-b border-green-500/30 mb-1 pb-1 flex justify-between">
+              <span>信號日誌</span>
+              <span onClick={() => setDebugLogs([])} className="cursor-pointer hover:text-white">清除</span>
+           </div>
+           {debugLogs.length === 0 && <div className="opacity-50 italic">等待信號...</div>}
+           {debugLogs.map((log, i) => (
+             <div key={i} className="mb-1 break-words">{log}</div>
+           ))}
+        </div>
+      )}
+
       <div className="mt-8 text-xs text-slate-500 max-w-xs text-center">
-         科技展專用原型 v2.0 | React + Vite + Micro:bit
+         科技展專用原型 v2.1 | React + Vite + Micro:bit
       </div>
     </div>
   );
