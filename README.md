@@ -34,6 +34,7 @@ npm run dev
 ## 🔧 Micro:bit 設置
 
 **重要提示：如果遇到藍牙連接問題，請查看 [MICROBIT_SETUP.md](./MICROBIT_SETUP.md) 指南，調整項目安全設置。**
+**🤖 如果使用 CreateAI 訓練模型，請務必閱讀 [AI_BLUETOOTH_GUIDE.md](./AI_BLUETOOTH_GUIDE.md) 指南。**
 
 1. 確保已安裝藍牙擴展
 2. 在 MakeCode 中開啟「無需配對」模式 (No Pairing Required)
