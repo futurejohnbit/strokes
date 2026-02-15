@@ -111,6 +111,13 @@
                 log('👉 找不到藍牙適配器，請檢查電腦藍牙是否開啟。', 'warn');
             } else if (error.message.includes('No Bluetooth devices found')) {
                 log('👉 找不到設備。請嘗試：\n1. 重啟 Micro:bit\n2. 確保沒有其他網頁(如CreateAI)連著它\n3. 靠近電腦', 'warn');
+            } else if (error.message.includes('ServiceDiscoveryTimeout') || error.message.includes('配對衝突')) {
+                log('🔴 嚴重錯誤：Windows 藍牙配對衝突', 'error');
+                log('👉 解決方案 (必須執行)：', 'warn');
+                log('1. 打開 Windows 設置 -> 藍牙和其他設備', 'normal');
+                log('2. 找到 "BBC micro:bit"，點擊 "刪除設備" (Remove Device)', 'normal');
+                log('3. 回到這裡重新掃描連接', 'normal');
+                log('💡 原因：Micro:bit 重新燒錄後密鑰變更，但 Windows 還記著舊密鑰，導致死鎖。', 'info');
             }
         }
 
@@ -125,8 +132,23 @@
                 const server = await device.gatt.connect();
                 log('✅ GATT 服務器已連接', 'success');
                 
-                log('🔍 正在枚舉所有服務...', 'info');
-                const services = await server.getPrimaryServices();
+                log('🔍 正在枚舉所有服務 (如果卡在這裡超過5秒，請看下方的解決方案)...', 'info');
+                
+                // 增加超時控制，避免無限等待
+                const servicesPromise = server.getPrimaryServices();
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('ServiceDiscoveryTimeout')), 5000)
+                );
+
+                let services;
+                try {
+                    services = await Promise.race([servicesPromise, timeoutPromise]);
+                } catch (err) {
+                    if (err.message === 'ServiceDiscoveryTimeout') {
+                        throw new Error('服務枚舉超時！這是典型的 Windows 配對衝突問題。');
+                    }
+                    throw err;
+                }
                 
                 if (services.length === 0) {
                     log('⚠️ 未發現任何服務！這通常意味著配對失敗或權限不足。', 'warn');
@@ -142,7 +164,9 @@
                     });
                 }
 
-                const uartService = services.find(s => s.uuid.startsWith('6e400001'));
+                // 修正：UUID 必須完全小寫匹配，且確保是完整 UUID
+                const uartService = services.find(s => s.uuid.toLowerCase() === '6e400001-b5a3-f393-e0a9-e50e24dcca9e');
+                
                 if (uartService) {
                     log('🎉 成功找到 UART 服務！', 'success');
                     await testUart(uartService);

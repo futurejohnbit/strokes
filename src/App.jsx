@@ -99,6 +99,7 @@ const App = () => {
   const connectMicrobit = async () => {
     try {
       setConnectionError('');
+      addLog('開始連接...');
       
       // 使用更寬鬆的過濾條件，只匹配名字前綴
       const device = await navigator.bluetooth.requestDevice({
@@ -106,11 +107,80 @@ const App = () => {
         optionalServices: [UART_SERVICE_UUID]
       });
 
+      addLog('設備已選擇，正在連接 GATT...');
       const server = await device.gatt.connect();
-      const service = await server.getPrimaryService(UART_SERVICE_UUID);
-      const characteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
+      addLog('GATT 連接成功，正在獲取服務...');
 
-      await characteristic.startNotifications();
+      // 使用 getPrimaryServices() 獲取所有服務，解決 Windows 服務發現卡死問題
+      // 並增加超時處理
+      const getServicesPromise = server.getPrimaryServices();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Service_Discovery_Timeout')), 5000)
+      );
+
+      let services;
+      try {
+        services = await Promise.race([getServicesPromise, timeoutPromise]);
+      } catch (e) {
+        if (e.message === 'Service_Discovery_Timeout') {
+           throw new Error('服務發現超時 (請嘗試在 Windows 藍牙設置中刪除設備後重試)');
+        }
+        throw e;
+      }
+
+      const service = services.find(s => s.uuid.toLowerCase() === UART_SERVICE_UUID.toLowerCase());
+      
+      if (!service) {
+        throw new Error('未找到 UART 服務 (請確認 Micro:bit 代碼正確且設置了 No Pairing Required)');
+      }
+      
+      addLog('找到 UART 服務，正在獲取特徵值...');
+
+      // 嘗試獲取 TX (Notify) 特徵值
+      // 根據 Nordic UART Service 定義：
+      // TX (Micro:bit -> Phone/PC) 是 6E400002 (雖然有時文檔說是 0003，但在 MakeCode 藍牙服務中通常 0002 是 TX)
+      // RX (Phone/PC -> Micro:bit) 是 6E400003
+      // 讓我們嘗試獲取兩個特徵值，看哪個支持 Notify
+      
+      const TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; 
+      const RX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+      let characteristic = null;
+      
+      // 先試 0002
+      try {
+        const char1 = await service.getCharacteristic(TX_UUID);
+        if (char1.properties.notify) {
+           characteristic = char1;
+           addLog('使用特徵值 0002 (支持 Notify)');
+        }
+      } catch(e) { /* ignore */ }
+
+      // 如果 0002 不行，試試 0003
+      if (!characteristic) {
+        try {
+          const char2 = await service.getCharacteristic(RX_UUID);
+          if (char2.properties.notify) {
+             characteristic = char2;
+             addLog('使用特徵值 0003 (支持 Notify)');
+          }
+        } catch(e) { /* ignore */ }
+      }
+
+      if (!characteristic) {
+         // 如果都找不到支持 Notify 的，就隨便拿一個試試（死馬當活馬醫）
+         addLog('警告: 未找到明確支持 Notify 的特徵值，嘗試盲連 0002...');
+         characteristic = await service.getCharacteristic(TX_UUID);
+      }
+
+      addLog('正在啟用通知...');
+      try {
+        await characteristic.startNotifications();
+      } catch (e) {
+        addLog('啟用通知失敗: ' + e.message);
+        throw new Error(`無法啟用通知 (GATT Error: Not supported 通常意味著屬性不支持 Notify)`);
+      }
+      
       characteristic.addEventListener('characteristicvaluechanged', handleMicrobitData);
 
       device.addEventListener('gattserverdisconnected', onDisconnected);
@@ -120,9 +190,11 @@ const App = () => {
       setIsConnected(true);
       setFeedback('Micro:bit 連接成功！');
       setFeedbackType('success');
+      addLog('連接流程全部完成！');
 
     } catch (error) {
       console.error('連接失敗:', error);
+      addLog('錯誤: ' + error.message);
       setConnectionError(error.message);
       setIsConnected(false);
     }
@@ -136,9 +208,15 @@ const App = () => {
     setFeedbackType('error');
   };
 
-  // 模擬 Micro:bit 輸入監聽 (鍵盤替代)
+  // 處理鍵盤事件
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // 阻止方向鍵默認滾動行為
+      if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+          e.preventDefault();
+      }
+      
+      const key = e.key.toLowerCase();
       if (gameState !== GAME_STATE.PLAYING) return;
 
       let inputDirection = null;

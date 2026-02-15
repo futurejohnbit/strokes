@@ -1,3 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 防止頁面在震動時出現滾動條 */
+body {
+  overflow: hidden;
+  touch-action: none; /* 防止觸摸滾動 */
+}
