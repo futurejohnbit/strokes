@@ -1439,7 +1439,7 @@ const GeminiApp = () => {
   };
 
   return (
-    <div className={`h-screen overflow-hidden bg-amber-50 text-slate-800 font-sans flex flex-col items-center p-4 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
+    <div className={`min-h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center p-4 pb-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
       
       <header className="w-full max-w-md flex justify-between items-center mb-2">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-amber-700 font-kai drop-shadow-sm">
