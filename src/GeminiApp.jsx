@@ -1503,12 +1503,18 @@ const GeminiApp = () => {
                   👇 沒有神筆？也可以試試看 👇
                 </p>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col gap-3 w-full max-w-xs">
+                  <button 
+                     onClick={startGame}
+                     className="px-6 py-3 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold rounded-2xl border-2 border-amber-300 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+                  >
+                     <Play size={20} /> 直接開始 (跳過連接)
+                  </button>
                   <button 
                      onClick={startTestMode}
-                     className="px-6 py-3 bg-white hover:bg-amber-50 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md"
+                     className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                   >
-                     <MonitorSmartphone size={20} /> 測試模式 (用滑鼠玩)
+                     <MonitorSmartphone size={20} /> 自由練習 (測試模式)
                   </button>
                 </div>
 
@@ -1519,13 +1525,6 @@ const GeminiApp = () => {
                     <span className="font-bold">{connectionError}</span>
                   </div>
                 )}
-                
-                <button 
-                   onClick={startGame}
-                   className="mt-4 text-slate-400 hover:text-slate-600 text-xs underline decoration-slate-300 transition-colors"
-                >
-                   (開發者通道：跳過連接)
-                </button>
               </div>
             </div>
           ) : (
