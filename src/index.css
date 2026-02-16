@@ -4,6 +4,19 @@
 
 /* 防止頁面在震動時出現滾動條 */
 body {
-  overflow: hidden;
-  touch-action: none; /* 防止觸摸滾動 */
+  /* overflow: hidden; */
+  /* touch-action: none; */
+  font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+}
+
+/* 定義 Free HK Kai 風格字體 */
+@font-face {
+  font-family: 'Free HK Kai';
+  /* 這裡應該指向真實的 Free HK Kai 字體文件，如果有的話 */
+  /* 目前使用 KaiTi 和 BiauKai 作為後備 */
+  src: local('KaiTi'), local('BiauKai'), local('DFKai-SB'), local('TW-Kai');
+}
+
+.font-kai {
+  font-family: 'Free HK Kai', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
 }
