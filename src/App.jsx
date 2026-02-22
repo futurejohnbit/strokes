@@ -320,7 +320,7 @@ const App = () => {
 
      if (inputDir === targetStroke.direction) {
        // Success
-       setFeedback('完美筆法！');
+       setFeedback('完美！');
        setFeedbackType('success');
        setCompletedStrokes([...completedStrokesRef.current, targetStroke]);
        setMonsterDistance(prev => Math.min(prev + 10, 100)); // 獎勵距離

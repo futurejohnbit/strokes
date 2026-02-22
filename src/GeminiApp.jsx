@@ -160,7 +160,7 @@ const PROFESSION_LEVELS = [
           title: '小木匠',
           icon: <Icons.Hammer size={32} className="text-amber-600" />,
           color: 'amber',
-          desc: '用尺劃線，用釘固定，打造穩固傢俱！',
+          desc: '拿起【鐵鎚與魯班尺】，感受木工的力道！',
           chars: [
               { 
                   char: '木', 
@@ -169,10 +169,16 @@ const PROFESSION_LEVELS = [
                   action_cue: '橫：用尺劃線(平)；豎：用力打釘(直)；撇捺：安裝支架(穩)！'
               },
               {
-                  char: '本',
-                  tool: '墨斗線',
-                  story: '木頭生根，根本穩固！',
-                  action_cue: '最後一橫是樹根，要畫得扎實！'
+                  char: '林',
+                  tool: '雙斧頭',
+                  story: '雙木成林，木材更多了！',
+                  action_cue: '左邊木頭要瘦長，右邊木頭要寬大！'
+              },
+              {
+                  char: '柱',
+                  tool: '大樑柱',
+                  story: '木頭做的柱子，支撐房屋！',
+                  action_cue: '左邊木頭站好，右邊主子撐住！'
               }
           ]
       },
@@ -181,19 +187,25 @@ const PROFESSION_LEVELS = [
           title: '小農夫',
           icon: <Icons.Seed size={32} className="text-green-600" />,
           color: 'green',
-          desc: '播下種子，辛勤耕耘，期待豐收！',
+          desc: '拿起【鋤頭與鐮刀】，體會耕種的辛勞！',
           chars: [
               { 
-                  char: '米', 
-                  tool: '鋤頭 & 種子',
-                  story: '點下種子，田埂分界，作物長高！',
-                  action_cue: '點：播種；橫豎：田埂；撇捺：稻穗垂下！'
-              },
-              {
-                  char: '禾',
+                  char: '禾', 
                   tool: '鐮刀',
                   story: '禾苗彎彎，豐收在望！',
                   action_cue: '第一筆是禾苗的頭，要畫得彎彎的！'
+              },
+              {
+                  char: '和',
+                  tool: '米飯碗',
+                  story: '人人有飯吃（口），天下太平！',
+                  action_cue: '左邊禾苗軟，右邊口要方！'
+              },
+              {
+                  char: '秋',
+                  tool: '秋收火把',
+                  story: '禾苗像火一樣紅，秋天到了！',
+                  action_cue: '左禾右火，紅紅火火！'
               }
           ]
       },
@@ -202,13 +214,25 @@ const PROFESSION_LEVELS = [
           title: '小廚神',
           icon: <Icons.Fire size={32} className="text-red-500" />,
           color: 'red',
-          desc: '點燃火花，大火快炒，控制火候！',
+          desc: '拿起【炒鍋與鍋鏟】，掌握火候的藝術！',
           chars: [
               { 
                   char: '火', 
                   tool: '打火石 & 炒鍋',
                   story: '點燃火花，大火快炒，添加柴火！',
                   action_cue: '點：打火；撇：快炒；捺：加柴！'
+              },
+              {
+                  char: '炎',
+                  tool: '雙爐火',
+                  story: '火上加火，非常炎熱！',
+                  action_cue: '上火小一點，下火大一點！'
+              },
+              {
+                  char: '炒',
+                  tool: '炒菜鏟',
+                  story: '火少一點，慢慢炒！',
+                  action_cue: '左火旺，右少翻！'
               }
           ]
       },
@@ -217,13 +241,25 @@ const PROFESSION_LEVELS = [
           title: '小書生',
           icon: <Icons.Brush size={32} className="text-indigo-600" />,
           color: 'indigo',
-          desc: '沾滿墨水，鋪開宣紙，揮毫寫字！',
+          desc: '拿起【毛筆與宣紙】，修身養性練功夫！',
           chars: [
               { 
-                  char: '文', 
+                  char: '言', 
                   tool: '毛筆 & 宣紙',
-                  story: '沾墨點頭，橫鋪紙張，撇捺揮毫！',
-                  action_cue: '點：沾墨；橫：鋪紙；撇捺：寫出文采！'
+                  story: '說話要誠實，一言九鼎！',
+                  action_cue: '點橫開頭，下面口要正！'
+              },
+              {
+                  char: '語',
+                  tool: '字典',
+                  story: '語言是溝通的橋樑！',
+                  action_cue: '言字旁在左，吾字在右邊！'
+              },
+              {
+                  char: '信',
+                  tool: '信封',
+                  story: '人言為信，說話算話！',
+                  action_cue: '人字旁站穩，言字在右邊！'
               }
           ]
       }
@@ -835,9 +871,9 @@ const GeminiApp = () => {
      if (inputDir === targetStroke.direction) {
        // Success
        addLog('✅ 筆劃正確！');
-       setFeedback('完美筆法！');
+       setFeedback('完美！');
        setFeedbackType('success');
-       setShowPopupHint({ text: '完美筆法！', type: 'success' }); // 彈出提示
+       setShowPopupHint({ text: '完美！', type: 'success' }); // 彈出提示
        setTimeout(() => setShowPopupHint(null), 1000);
 
        
@@ -1397,7 +1433,7 @@ const GeminiApp = () => {
                             gameLevelData && gameLevelData.profession.id === 'farmer' ? <Icons.Seed size={24} /> :
                             gameLevelData && gameLevelData.profession.id === 'chef' ? <Icons.Fire size={24} /> :
                             gameLevelData && gameLevelData.profession.id === 'scholar' ? <Icons.Brush size={24} /> :
-                            <Icons.Sword size={24} />;
+                           <Icons.Hammer size={24} />;
 
            return (
             <div 
@@ -1459,72 +1495,82 @@ const GeminiApp = () => {
           
           {/* 未連接時顯示首頁 (Landing Page) */}
           {!isConnected ? (
-            <div className="text-center space-y-6 animate-fade-in py-8 px-4 max-w-2xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-6xl mx-auto px-4 py-8 animate-fade-in">
               
-              {/* 標題區 */}
-              <div className="relative inline-block mb-4">
-                 <h1 className="text-6xl md:text-7xl font-bold text-amber-600 drop-shadow-md font-kai tracking-wide">
-                  行行出狀元
-                </h1>
-                <div className="absolute -top-6 -right-8 text-5xl animate-bounce">🎓</div>
-              </div>
-
-              {/* 故事卡片 */}
-              <div className="bg-white/90 backdrop-blur-sm p-8 rounded-[2rem] shadow-xl border-4 border-amber-200 transform rotate-1 hover:rotate-0 transition-transform duration-300">
-                <div className="flex justify-center gap-4 mb-4 text-6xl">
-                    <span className="animate-pulse">🖌️</span>
-                    <span>🆚</span>
-                    <span className="animate-bounce">👾</span>
-                </div>
-                <h2 className="text-2xl font-bold text-slate-700 mb-4 font-kai">
-                  🔥 急單！狀元坊的挑戰
-                </h2>
-                <p className="text-lg text-slate-600 leading-relaxed font-kai text-left">
-                  各位小學徒，狀元坊接到了緊急訂單！
-                  <br/><br/>
-                  需要在時間內完成各行各業的漢字招牌製作。快拿起你的 <span className="text-blue-600 font-bold bg-blue-100 px-2 rounded-full">魔法神筆 (Micro:bit)</span>，
-                  跟隨 <span className="text-amber-600 font-bold">小木匠</span>、<span className="text-green-600 font-bold">小農夫</span>，
-                  在 <span className="text-red-500 font-bold">倒計時</span> 結束前完成任務吧！✨
-                </p>
-              </div>
-              
-              {/* 操作區 */}
-              <div className="flex flex-col items-center gap-4 mt-8">
-                <button 
-                  onClick={connectMicrobit}
-                  className="group relative px-8 py-5 bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white text-2xl font-bold rounded-full shadow-xl shadow-blue-200 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 overflow-hidden border-b-8 border-blue-800"
-                >
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                  <Bluetooth size={32} className="animate-pulse" /> 
-                  <span>連結神筆，開始冒險！</span>
-                </button>
-                
-                <p className="text-slate-500 text-sm font-kai">
-                  👇 沒有神筆？也可以試試看 👇
-                </p>
-
-                <div className="flex flex-col gap-3 w-full max-w-xs">
-                  <button 
-                     onClick={startGame}
-                     className="px-6 py-3 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold rounded-2xl border-2 border-amber-300 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                  >
-                     <Play size={20} /> 直接開始 (跳過連接)
-                  </button>
-                  <button 
-                     onClick={startTestMode}
-                     className="px-6 py-3 bg-white hover:bg-slate-50 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                  >
-                     <MonitorSmartphone size={20} /> 自由練習 (測試模式)
-                  </button>
-                </div>
-
-                {/* 錯誤提示 */}
-                {connectionError && (
-                  <div className="mt-4 p-4 bg-red-100 border-2 border-red-200 text-red-600 rounded-2xl flex items-center gap-2 animate-shake">
-                    <Zap size={24} />
-                    <span className="font-bold">{connectionError}</span>
+              {/* 左側：品牌與故事 (Left Column: Brand & Story) */}
+              <div className="flex-1 text-center md:text-left space-y-6 max-w-xl">
+                  <div className="relative inline-block">
+                      <h1 className="text-5xl md:text-7xl font-bold text-amber-600 drop-shadow-md font-kai tracking-wide leading-tight">
+                        行行出狀元
+                      </h1>
+                      <div className="absolute -top-4 -right-6 text-4xl animate-bounce">🎓</div>
                   </div>
-                )}
+                  
+                  <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border-l-4 border-amber-400 text-left transform transition-all hover:scale-[1.01]">
+                      <h2 className="text-xl font-bold text-slate-700 mb-3 flex items-center gap-2">
+                          <span className="text-2xl">🏆</span> 行行出狀元：百變工具體驗營
+                      </h2>
+                      <p className="text-slate-600 leading-relaxed font-kai text-lg">
+                          俗話說「行行出狀元」，只要掌握手中的工具，你也能成為該行業的狀元！<br/>
+                          你的 <span className="text-blue-600 font-bold bg-blue-50 px-1 rounded">Micro:bit</span> 就是一把「百變工具」。
+                          <br/><br/>
+                          在木工坊它是<span className="text-amber-600 font-bold">鐵鎚</span>，在廚房它是<span className="text-red-500 font-bold">鍋鏟</span>。
+                          快來揮動工具體驗各行技藝，收集屬於你的狀元勳章吧！✨
+                      </p>
+                  </div>
+              </div>
+
+              {/* 右側：操作面板 (Right Column: Actions) */}
+              <div className="flex-1 w-full max-w-md bg-white/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl border-4 border-white/50 relative overflow-hidden group hover:border-blue-200 transition-colors duration-500">
+                  {/* 裝飾背景 */}
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-blue-100 rounded-full blur-3xl -z-10 opacity-60"></div>
+                  <div className="absolute bottom-0 left-0 w-40 h-40 bg-amber-100 rounded-full blur-3xl -z-10 opacity-60"></div>
+
+                  <div className="space-y-6 relative z-10">
+                      <div className="text-center mb-2">
+                          <h3 className="text-lg font-bold text-slate-500 font-kai">準備好上工了嗎？</h3>
+                      </div>
+
+                      <button 
+                        onClick={connectMicrobit}
+                        className="w-full group relative px-6 py-5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 border-b-4 border-blue-800"
+                      >
+                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                        <Bluetooth size={28} className="animate-pulse" /> 
+                        <span>連結百變工具，開始體驗！</span>
+                      </button>
+                      
+                      <div className="relative flex py-2 items-center">
+                          <div className="flex-grow border-t border-slate-300"></div>
+                          <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-bold bg-white/50 px-2 rounded-full">或是</span>
+                          <div className="flex-grow border-t border-slate-300"></div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <button 
+                           onClick={startGame}
+                           className="group px-4 py-4 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-xl border-2 border-amber-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-2"
+                        >
+                           <Play size={24} className="group-hover:scale-110 transition-transform" /> 
+                           <span>直接開始</span>
+                        </button>
+                        <button 
+                           onClick={startTestMode}
+                           className="group px-4 py-4 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl border-2 border-slate-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-2"
+                        >
+                           <MonitorSmartphone size={24} className="group-hover:scale-110 transition-transform" /> 
+                           <span>自由練習</span>
+                        </button>
+                      </div>
+
+                      {/* 錯誤提示區域 */}
+                      {connectionError && (
+                        <div className="mt-2 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl flex items-start gap-2 animate-shake shadow-sm">
+                          <Zap size={16} className="mt-0.5 flex-shrink-0" />
+                          <span className="font-bold">{connectionError}</span>
+                        </div>
+                      )}
+                  </div>
               </div>
             </div>
           ) : (
@@ -1535,7 +1581,7 @@ const GeminiApp = () => {
               </div>
               
               <h2 className="text-4xl font-bold mb-2 text-slate-800 font-kai">連接成功！</h2>
-              <p className="text-slate-500 mb-8 font-medium text-lg">神筆已激活，準備出發！</p>
+              <p className="text-slate-500 mb-8 font-medium text-lg">百變工具已就緒，準備上工！</p>
               
               <div className="flex flex-col gap-3">
                 <button 
@@ -1717,14 +1763,43 @@ const GeminiApp = () => {
                 </div>
               )}
           </div>
+
+          {/* 底部信息區：師傅口訣與心法 */}
+          <div className="mt-2 flex-1 flex flex-col justify-end space-y-2 w-full">
+              {/* 動作要領 (Action Cue) */}
+              {gameLevelData && gameLevelData.action_cue && (
+                  <div className={`p-3 rounded-xl border-l-4 text-left shadow-sm bg-white/50 backdrop-blur-sm ${getProfessionTheme(gameLevelData.profession.id).border} animate-fade-in`}>
+                      <div className="flex items-start gap-3">
+                          <span className="text-2xl filter drop-shadow-sm">💡</span>
+                          <div>
+                              <div className={`text-xs font-bold uppercase tracking-wider opacity-70 mb-0.5 ${getProfessionTheme(gameLevelData.profession.id).text}`}>
+                                  師傅口訣
+                              </div>
+                              <div className={`font-medium text-sm md:text-base leading-tight ${getProfessionTheme(gameLevelData.profession.id).text}`}>
+                                  {gameLevelData.action_cue}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* 職業心法 (Desc) */}
+              {gameLevelData && gameLevelData.profession.desc && (
+                  <div className="text-center pb-1">
+                      <span className="text-xs text-slate-400 font-kai italic bg-white/40 px-3 py-1 rounded-full">
+                          “{gameLevelData.profession.desc}”
+                      </span>
+                  </div>
+              )}
+          </div>
         </div>
       )}
 
       {gameState === GAME_STATE.WON && (
         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl text-center max-w-md w-full border-4 border-amber-200 animate-bounce-in">
           <div className="mb-6 text-8xl filter drop-shadow-md">🏆</div>
-          <h2 className="text-3xl font-bold mb-4 text-amber-600 font-kai">封印成功！</h2>
-          <p className="text-slate-600 mb-8 font-kai text-lg leading-relaxed">太棒了！<br/>你成功運用正確的筆順趕走了錯字魔！</p>
+          <h2 className="text-3xl font-bold mb-4 text-amber-600 font-kai">狀元及第！</h2>
+          <p className="text-slate-600 mb-8 font-kai text-lg leading-relaxed">太棒了！<br/>你已熟練掌握各行技藝，成為名副其實的行業狀元！</p>
           <div className="flex justify-center gap-4">
              <button 
               onClick={startGame}
@@ -1769,8 +1844,8 @@ const GeminiApp = () => {
       {gameState === GAME_STATE.LOST && (
         <div className="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-md w-full border-4 border-slate-300">
           <div className="mb-4 text-6xl">⏰</div>
-          <h2 className="text-2xl font-bold mb-2 text-slate-700 font-kai">訂單超時了...</h2>
-          <p className="text-slate-500 mb-6 font-kai">別氣餒，小學徒！<br/>動作再快一點，下次一定能趕上！</p>
+          <h2 className="text-2xl font-bold mb-2 text-slate-700 font-kai">力氣用盡了...</h2>
+          <p className="text-slate-500 mb-6 font-kai">別氣餒，小學徒！<br/>休息一下，重新握好工具再挑戰！</p>
           <button 
             onClick={startGame}
             className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg"
