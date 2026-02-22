@@ -1491,28 +1491,34 @@ const GeminiApp = () => {
       </header>
 
       {gameState === GAME_STATE.MENU && (
-        <div className="w-full max-w-4xl flex flex-col items-center">
+        <div className="w-full max-w-6xl flex flex-col items-center">
           
           {/* 未連接時顯示首頁 (Landing Page) */}
           {!isConnected ? (
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-6xl mx-auto px-4 py-8 animate-fade-in">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-12 w-full px-4 py-8 animate-fade-in relative">
               
+              {/* 背景裝飾圖標 (Background Icons) */}
+              <div className="absolute top-10 left-10 opacity-10 rotate-12 pointer-events-none text-amber-800"><Icons.Hammer size={120} /></div>
+              <div className="absolute bottom-10 right-10 opacity-10 -rotate-12 pointer-events-none text-green-800"><Icons.Seed size={120} /></div>
+              <div className="absolute top-20 right-20 opacity-10 rotate-45 pointer-events-none text-red-800"><Icons.Fire size={80} /></div>
+
               {/* 左側：品牌與故事 (Left Column: Brand & Story) */}
-              <div className="flex-1 text-center md:text-left space-y-6 max-w-xl">
+              <div className="flex-1 text-center md:text-left space-y-8 max-w-xl z-10">
                   <div className="relative inline-block">
-                      <h1 className="text-5xl md:text-7xl font-bold text-amber-600 drop-shadow-md font-kai tracking-wide leading-tight">
+                      <h1 className="text-6xl md:text-8xl font-bold text-amber-700 drop-shadow-lg font-kai tracking-wide leading-tight">
                         行行出狀元
                       </h1>
-                      <div className="absolute -top-4 -right-6 text-4xl animate-bounce">🎓</div>
+                      <div className="absolute -top-6 -right-8 text-5xl animate-bounce">🎓</div>
                   </div>
                   
-                  <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border-l-4 border-amber-400 text-left transform transition-all hover:scale-[1.01]">
-                      <h2 className="text-xl font-bold text-slate-700 mb-3 flex items-center gap-2">
-                          <span className="text-2xl">🏆</span> 行行出狀元：百變工具體驗營
+                  <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl border-l-8 border-amber-500 text-left transform transition-all hover:scale-[1.02] relative overflow-hidden">
+                      <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none"><Award size={150} /></div>
+                      <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                          <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：百變工具體驗營
                       </h2>
-                      <p className="text-slate-600 leading-relaxed font-kai text-lg">
+                      <p className="text-slate-600 leading-relaxed font-kai text-xl">
                           俗話說「行行出狀元」，只要掌握手中的工具，你也能成為該行業的狀元！<br/>
-                          你的 <span className="text-blue-600 font-bold bg-blue-50 px-1 rounded">Micro:bit</span> 就是一把「百變工具」。
+                          你的 <span className="text-blue-600 font-bold bg-blue-50 px-2 rounded border border-blue-200">Micro:bit</span> 就是一把「百變工具」。
                           <br/><br/>
                           在木工坊它是<span className="text-amber-600 font-bold">鐵鎚</span>，在廚房它是<span className="text-red-500 font-bold">鍋鏟</span>。
                           快來揮動工具體驗各行技藝，收集屬於你的狀元勳章吧！✨
@@ -1521,45 +1527,45 @@ const GeminiApp = () => {
               </div>
 
               {/* 右側：操作面板 (Right Column: Actions) */}
-              <div className="flex-1 w-full max-w-md bg-white/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl border-4 border-white/50 relative overflow-hidden group hover:border-blue-200 transition-colors duration-500">
+              <div className="flex-1 w-full max-w-md bg-white/95 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-2xl border-4 border-white relative overflow-hidden group hover:border-blue-200 transition-colors duration-500 z-10">
                   {/* 裝飾背景 */}
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-blue-100 rounded-full blur-3xl -z-10 opacity-60"></div>
-                  <div className="absolute bottom-0 left-0 w-40 h-40 bg-amber-100 rounded-full blur-3xl -z-10 opacity-60"></div>
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-100 rounded-full blur-3xl -z-10 opacity-70"></div>
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-100 rounded-full blur-3xl -z-10 opacity-70"></div>
 
-                  <div className="space-y-6 relative z-10">
-                      <div className="text-center mb-2">
-                          <h3 className="text-lg font-bold text-slate-500 font-kai">準備好上工了嗎？</h3>
+                  <div className="space-y-8 relative z-10">
+                      <div className="text-center mb-4">
+                          <h3 className="text-xl font-bold text-slate-500 font-kai tracking-widest">準備好上工了嗎？</h3>
                       </div>
 
                       <button 
                         onClick={connectMicrobit}
-                        className="w-full group relative px-6 py-5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 border-b-4 border-blue-800"
+                        className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
                       >
                         <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                        <Bluetooth size={28} className="animate-pulse" /> 
+                        <Bluetooth size={32} className="animate-pulse" /> 
                         <span>連結百變工具，開始體驗！</span>
                       </button>
                       
                       <div className="relative flex py-2 items-center">
                           <div className="flex-grow border-t border-slate-300"></div>
-                          <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-bold bg-white/50 px-2 rounded-full">或是</span>
+                          <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-bold bg-white/50 px-3 py-1 rounded-full">或是</span>
                           <div className="flex-grow border-t border-slate-300"></div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-5">
                         <button 
                            onClick={startGame}
-                           className="group px-4 py-4 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-xl border-2 border-amber-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-2"
+                           className="group px-6 py-5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-2xl border-2 border-amber-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-3"
                         >
-                           <Play size={24} className="group-hover:scale-110 transition-transform" /> 
-                           <span>直接開始</span>
+                           <Play size={32} className="group-hover:scale-110 transition-transform" /> 
+                           <span className="text-lg">直接開始</span>
                         </button>
                         <button 
                            onClick={startTestMode}
-                           className="group px-4 py-4 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-xl border-2 border-slate-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-2"
+                           className="group px-6 py-5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-3"
                         >
-                           <MonitorSmartphone size={24} className="group-hover:scale-110 transition-transform" /> 
-                           <span>自由練習</span>
+                           <MonitorSmartphone size={32} className="group-hover:scale-110 transition-transform" /> 
+                           <span className="text-lg">自由練習</span>
                         </button>
                       </div>
 
@@ -1692,101 +1698,105 @@ const GeminiApp = () => {
       )}
 
       {gameState === GAME_STATE.PLAYING && (
-        <div className="w-full max-w-md h-full flex flex-col p-2">
-          {/* 狀態列 */}
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm">
-            <div className="flex flex-col">
-               <span className={`text-xs font-bold ${getProfessionTheme(gameLevelData?.profession?.id).highlight}`}>
-                 {gameLevelData ? gameLevelData.profession.title : '...'}
-               </span>
-               <span className="text-4xl font-bold text-slate-800 font-kai">{gameLevelData ? gameLevelData.char : '...'}</span>
-            </div>
-            <div className="flex-1 mx-4 text-center">
-                 {gameLevelData && gameLevelData.tool && (
-                   <div className={`text-xs font-bold mb-2 bg-slate-100 rounded-full px-3 py-1 inline-block ${getProfessionTheme(gameLevelData.profession.id).highlight}`}>
-                     神器：{gameLevelData.tool}
-                   </div>
-                 )}
-            </div>
-            <div className="flex-none flex flex-col items-end">
-                 <span className="text-xs text-slate-400 font-bold mb-1">剩餘時間</span>
-                 <span className={`text-xl font-bold font-mono ${timeLeft < 15 ? 'text-red-500 animate-pulse' : 'text-slate-700'}`}>
-                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-                 </span>
-            </div>
-          </div>
-
-          {/* 時間進度條 */}
-          <div className="h-4 bg-slate-200 rounded-full overflow-hidden border border-slate-300 relative shadow-inner">
-             <div 
-               className={`h-full transition-all duration-1000 ${timeLeft < 15 ? 'bg-red-500' : 'bg-green-500'}`}
-               style={{ 
-                   width: `${(timeLeft / 90) * 100}%`
-               }}
-             />
-          </div>
+        <div className="w-full max-w-6xl h-full flex flex-col md:flex-row items-center justify-center p-2 gap-8">
           
-          {/* 每一筆的故事台詞 (Story Line) - 大大顯示在上方 */}
-          {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && (
-             <div className="text-center relative z-10 animate-fade-in-up mt-2 mb-1">
-                <div className={`text-xl md:text-2xl font-bold font-kai ${getProfessionTheme(gameLevelData.profession.id).text} drop-shadow-md bg-white px-6 py-2 rounded-full inline-block border-2 ${getProfessionTheme(gameLevelData.profession.id).border} shadow-sm`}>
-                   {gameLevelData.strokes[currentStrokeIndex].hint.split(' (')[0]} {/* 只顯示前半部分故事，括號內的筆劃名略小顯示 */}
-                   <span className="text-base ml-2 opacity-80 font-sans text-slate-500">
-                      {gameLevelData.strokes[currentStrokeIndex].hint.match(/\(.*\)/)?.[0]}
-                   </span>
-                </div>
-             </div>
-          )}
-          
-          {/* 遊戲主畫布 */}
-          <div className="relative">
-              {renderCanvas()}
+          {/* 左側面板：信息與提示 (Left Panel: Info & Hints) */}
+          <div className="flex-1 w-full max-w-md flex flex-col gap-6 order-2 md:order-1">
               
-              {/* 懸浮提示框 (Pop-up Hint) - 指引 */}
-              {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && !isAnimating && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 animate-bounce">
-                    <div className={`px-5 py-2 rounded-full shadow-xl border-4 bg-white text-slate-800 font-bold text-xl whitespace-nowrap ${getProfessionTheme(gameLevelData.profession.id).border}`}>
-                        {gameLevelData.strokes[currentStrokeIndex].hint.replace('請揮動: ', '')}
-                        {/* 這裡可以放圖標 */}
-                    </div>
-                </div>
+              {/* 1. 狀態與進度卡片 */}
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-lg relative overflow-hidden">
+                  <div className={`absolute top-0 left-0 w-2 h-full ${getProfessionTheme(gameLevelData?.profession?.id).bg.replace('bg-', 'bg-')}`}></div>
+                  <div className="flex justify-between items-start mb-4">
+                      <div>
+                          <div className={`text-sm font-bold tracking-wider uppercase mb-1 ${getProfessionTheme(gameLevelData?.profession?.id).highlight}`}>
+                              {gameLevelData ? gameLevelData.profession.title : '...'}
+                          </div>
+                          <div className="text-6xl font-bold text-slate-800 font-kai leading-none">{gameLevelData ? gameLevelData.char : '...'}</div>
+                      </div>
+                      <div className="text-right">
+                          <div className="text-xs text-slate-400 font-bold mb-1">剩餘時間</div>
+                          <div className={`text-3xl font-mono font-bold ${timeLeft < 15 ? 'text-red-500 animate-pulse' : 'text-slate-700'}`}>
+                              {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                          </div>
+                      </div>
+                  </div>
+                  
+                  {/* 神器標籤 */}
+                  {gameLevelData && gameLevelData.tool && (
+                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold ${getProfessionTheme(gameLevelData.profession.id).bg} ${getProfessionTheme(gameLevelData.profession.id).text}`}>
+                          <span>神器：</span>
+                          <span>{gameLevelData.tool}</span>
+                      </div>
+                  )}
+
+                  {/* 進度條 */}
+                  <div className="mt-6 h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 ${timeLeft < 15 ? 'bg-red-500' : 'bg-green-500'}`}
+                        style={{ width: `${(timeLeft / 90) * 100}%` }}
+                      />
+                  </div>
+              </div>
+
+              {/* 2. 當前筆劃故事 (大字提示) */}
+              {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && (
+                  <div className={`bg-white rounded-3xl p-6 shadow-xl border-l-8 ${getProfessionTheme(gameLevelData.profession.id).border} text-center transform transition-all hover:scale-[1.02]`}>
+                      <div className={`text-3xl md:text-4xl font-bold font-kai mb-2 ${getProfessionTheme(gameLevelData.profession.id).text}`}>
+                          {gameLevelData.strokes[currentStrokeIndex].hint.split(' (')[0]}
+                      </div>
+                      <div className="text-slate-400 font-medium">
+                          {gameLevelData.strokes[currentStrokeIndex].hint.match(/\(.*\)/)?.[0]}
+                      </div>
+                  </div>
               )}
 
-              {/* 結果彈出提示 (Result Pop-up) - 成功/失敗 */}
-              {showPopupHint && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 animate-ping-once">
-                    <div className={`px-8 py-4 rounded-[2rem] shadow-2xl border-4 font-bold text-3xl whitespace-nowrap transform scale-110
-                        ${showPopupHint.type === 'success' ? 'bg-green-50 border-green-400 text-green-600' : 'bg-red-50 border-red-400 text-red-600'}
-                    `}>
-                        {showPopupHint.text}
-                    </div>
-                </div>
-              )}
-          </div>
-
-          {/* 底部信息區：師傅口訣與心法 */}
-          <div className="mt-2 flex-1 flex flex-col justify-end space-y-2 w-full">
-              {/* 動作要領 (Action Cue) */}
+              {/* 3. 師傅口訣 (底部信息) */}
               {gameLevelData && gameLevelData.action_cue && (
-                  <div className={`p-3 rounded-xl border-l-4 text-left shadow-sm bg-white/50 backdrop-blur-sm ${getProfessionTheme(gameLevelData.profession.id).border} animate-fade-in`}>
-                      <div className="flex items-start gap-3">
-                          <span className="text-2xl filter drop-shadow-sm">💡</span>
+                  <div className={`p-5 rounded-3xl border-2 border-dashed bg-white/60 backdrop-blur-sm ${getProfessionTheme(gameLevelData.profession.id).border.replace('border-', 'border-opacity-50 ')}`}>
+                      <div className="flex items-start gap-4">
+                          <div className="bg-yellow-100 p-2 rounded-xl text-2xl shadow-sm">💡</div>
                           <div>
-                              <div className={`text-xs font-bold uppercase tracking-wider opacity-70 mb-0.5 ${getProfessionTheme(gameLevelData.profession.id).text}`}>
+                              <div className={`text-xs font-bold uppercase tracking-wider opacity-60 mb-1 ${getProfessionTheme(gameLevelData.profession.id).text}`}>
                                   師傅口訣
                               </div>
-                              <div className={`font-medium text-sm md:text-base leading-tight ${getProfessionTheme(gameLevelData.profession.id).text}`}>
+                              <div className={`text-lg font-medium leading-snug ${getProfessionTheme(gameLevelData.profession.id).text}`}>
                                   {gameLevelData.action_cue}
                               </div>
                           </div>
                       </div>
                   </div>
               )}
+          </div>
 
-              {/* 職業心法 (Desc) */}
+          {/* 右側面板：主畫布 (Right Panel: Main Canvas) */}
+          <div className="flex-none w-full md:w-auto h-auto md:h-[85vh] aspect-square order-1 md:order-2 flex flex-col justify-center relative">
+              {/* 畫布容器 */}
+              {renderCanvas()}
+              
+              {/* 懸浮提示框 (Pop-up Hint) - 指引 */}
+              {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && !isAnimating && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 animate-bounce">
+                    <div className={`px-6 py-3 rounded-full shadow-2xl border-4 bg-white text-slate-800 font-bold text-2xl whitespace-nowrap ${getProfessionTheme(gameLevelData.profession.id).border}`}>
+                        {gameLevelData.strokes[currentStrokeIndex].hint.replace('請揮動: ', '')}
+                    </div>
+                </div>
+              )}
+
+              {/* 結果彈出提示 */}
+              {showPopupHint && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 animate-ping-once">
+                    <div className={`px-10 py-6 rounded-[2.5rem] shadow-2xl border-8 font-bold text-4xl whitespace-nowrap transform scale-110
+                        ${showPopupHint.type === 'success' ? 'bg-green-50 border-green-400 text-green-600' : 'bg-red-50 border-red-400 text-red-600'}
+                    `}>
+                        {showPopupHint.text}
+                    </div>
+                </div>
+              )}
+
+              {/* 底部職業心法 (Desc) - 放在畫布下方 */}
               {gameLevelData && gameLevelData.profession.desc && (
-                  <div className="text-center pb-1">
-                      <span className="text-xs text-slate-400 font-kai italic bg-white/40 px-3 py-1 rounded-full">
+                  <div className="absolute -bottom-12 left-0 right-0 text-center">
+                      <span className="text-sm md:text-base text-slate-500 font-kai italic bg-white/80 backdrop-blur px-4 py-1.5 rounded-full shadow-sm border border-slate-200">
                           “{gameLevelData.profession.desc}”
                       </span>
                   </div>
