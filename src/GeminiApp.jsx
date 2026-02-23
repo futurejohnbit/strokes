@@ -583,6 +583,7 @@ const GeminiApp = () => {
   // 新增：防抖與過渡狀態 Ref
   const lastStrokeTimeRef = useRef(0);
   const isTransitioningRef = useRef(false);
+  const isAnimatingRef = useRef(false);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -789,7 +790,7 @@ const GeminiApp = () => {
   const [showPopupHint, setShowPopupHint] = useState(null); // 用於顯示彈出提示 { text: string, type: 'success' | 'error' }
 
   const processStrokeInput = async (inputDir) => {
-     if (isAnimating) return; // 防止動畫期間重複觸發
+     if (isAnimatingRef.current) return; // 使用 Ref 進行嚴格鎖定防止重複觸發
      
      // 200ms 防抖
      const now = Date.now();
@@ -821,6 +822,7 @@ const GeminiApp = () => {
             setTimeout(() => setShowPopupHint(null), 1000);
             
             // 動畫開始
+            isAnimatingRef.current = true;
             setIsAnimating(true);
             
             // 平滑動畫
@@ -828,6 +830,7 @@ const GeminiApp = () => {
             
             setCompletedStrokes(prev => [...prev, targetStroke]);
             setAnimationPoint(null);
+            isAnimatingRef.current = false;
             setIsAnimating(false);
             
             if (currentIndex + 1 >= testCharacter.strokes.length) {
@@ -843,10 +846,6 @@ const GeminiApp = () => {
             setFeedbackType('error');
             setShowPopupHint({ text: '再試一次！', type: 'error' }); // 彈出提示
             setTimeout(() => setShowPopupHint(null), 1000);
-
-            // 移除錯誤方向引導
-            // setShowGuideArrow(targetStroke.direction);
-            // setTimeout(() => setShowGuideArrow(null), 1500);
         }
         return;
      }
@@ -878,6 +877,7 @@ const GeminiApp = () => {
 
        
        // 動畫開始
+       isAnimatingRef.current = true;
        setIsAnimating(true);
        
        // 平滑動畫
@@ -885,6 +885,7 @@ const GeminiApp = () => {
 
        setCompletedStrokes(prev => [...prev, targetStroke]);
        setAnimationPoint(null);
+       isAnimatingRef.current = false;
        setIsAnimating(false);
 
        // 成功不扣時間，或者可以加時
@@ -899,6 +900,10 @@ const GeminiApp = () => {
          setTimeout(async () => {
             // 下一關邏輯
             const nextCharIndex = currentCharIndexRef.current + 1;
+            // 先重置狀態防止閃爍
+            setCompletedStrokes([]);
+            setCurrentStrokeIndex(0);
+            
             setCurrentCharIndex(nextCharIndex);
             await fetchGameLevelData(currentLevel, nextCharIndex);
             
@@ -914,16 +919,7 @@ const GeminiApp = () => {
      } else {
        // Fail
        addLog(`❌ 筆劃錯誤 (預期: ${targetStroke.direction})`);
-       // setFeedback('小心！動作不準確！');
        setFeedbackType('error');
-       // setShowPopupHint({ text: '小心！', type: 'error' }); // 彈出提示
-       // setTimeout(() => setShowPopupHint(null), 1000);
-       // 失敗不扣時間，讓時間自然流逝
-       // setTimeLeft(prev => Math.max(prev - 2, 0));
-       
-       // 移除錯誤方向引導
-       // setShowGuideArrow(targetStroke.direction);
-       // setTimeout(() => setShowGuideArrow(null), 1500);
      }
    };
 
@@ -1475,9 +1471,9 @@ const GeminiApp = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center p-4 pb-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
+    <div className={`h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
       
-      <header className="w-full max-w-md flex justify-between items-center mb-2">
+      <header className="w-full max-w-md flex justify-between items-center p-4 shrink-0 z-50 bg-amber-50/90 backdrop-blur-sm">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-amber-700 font-kai drop-shadow-sm">
           <div className="bg-amber-500 text-white px-2 py-1 rounded-lg shadow-sm">狀元</div>
           行行出狀元
@@ -1490,6 +1486,7 @@ const GeminiApp = () => {
         </div>
       </header>
 
+      <main className="flex-1 w-full overflow-y-auto flex flex-col items-center p-4 pb-20">
       {gameState === GAME_STATE.MENU && (
         <div className="w-full max-w-6xl flex flex-col items-center">
           
@@ -1698,10 +1695,10 @@ const GeminiApp = () => {
       )}
 
       {gameState === GAME_STATE.PLAYING && (
-        <div className="w-full max-w-6xl h-full flex flex-col md:flex-row items-center justify-center p-2 gap-8">
+        <div className="w-full max-w-6xl flex-1 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8 overflow-y-auto md:overflow-visible p-2 md:p-4 scrollbar-hide">
           
           {/* 左側面板：信息與提示 (Left Panel: Info & Hints) */}
-          <div className="flex-1 w-full max-w-md flex flex-col gap-6 order-2 md:order-1">
+          <div className="flex-1 w-full max-w-md flex flex-col gap-4 md:gap-6 order-2 md:order-1 pb-10 md:pb-0">
               
               {/* 1. 狀態與進度卡片 */}
               <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-lg relative overflow-hidden">
@@ -1769,7 +1766,7 @@ const GeminiApp = () => {
           </div>
 
           {/* 右側面板：主畫布 (Right Panel: Main Canvas) */}
-          <div className="flex-none w-full md:w-auto h-auto md:h-[85vh] aspect-square order-1 md:order-2 flex flex-col justify-center relative">
+          <div className="flex-none w-full max-w-[320px] md:max-w-none md:w-auto h-auto md:h-[80vh] aspect-square order-1 md:order-2 flex flex-col justify-center relative shrink-0">
               {/* 畫布容器 */}
               {renderCanvas()}
               
@@ -1865,6 +1862,11 @@ const GeminiApp = () => {
         </div>
       )}
 
+      <div className="mt-8 text-xs text-slate-500 max-w-xs text-center shrink-0 pb-8">
+         科技展專用原型 v2.2 | React + Vite + Micro:bit
+      </div>
+      </main>
+
       {/* 調試模式切換 */}
       <div className="fixed bottom-4 left-4 z-50">
          <button 
@@ -1889,9 +1891,6 @@ const GeminiApp = () => {
         </div>
       )}
 
-      <div className="mt-8 text-xs text-slate-500 max-w-xs text-center">
-         科技展專用原型 v2.2 | React + Vite + Micro:bit
-      </div>
     </div>
   );
 };
