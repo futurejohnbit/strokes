@@ -1068,10 +1068,10 @@ const GeminiApp = () => {
   // 處理鍵盤事件
   useEffect(() => {
     const handleKeyDown = (e) => {
-    // 移除 e.preventDefault() 以允許頁面滾動
-    // if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
-    //     e.preventDefault();
-    // }
+    // 移除 e.preventDefault() 以允許頁面滾動 -> 恢復防止滾動
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+        e.preventDefault();
+    }
     
     if (gameState !== GAME_STATE.PLAYING && gameState !== GAME_STATE.TEST) return;
 
@@ -1475,7 +1475,7 @@ const GeminiApp = () => {
       
       <header className="w-full max-w-md flex justify-between items-center p-4 shrink-0 z-50 bg-amber-50/90 backdrop-blur-sm">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-amber-700 font-kai drop-shadow-sm">
-          <div className="bg-amber-500 text-white px-2 py-1 rounded-lg shadow-sm">狀元</div>
+          <span>狀元</span>
           行行出狀元
         </h1>
         
@@ -1772,7 +1772,7 @@ const GeminiApp = () => {
               
               {/* 懸浮提示框 (Pop-up Hint) - 指引 */}
               {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && !isAnimating && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 animate-bounce">
+                <div className="absolute top-1/2 left-[70%] transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 animate-bounce">
                     <div className={`px-6 py-3 rounded-full shadow-2xl border-4 bg-white text-slate-800 font-bold text-2xl whitespace-nowrap ${getProfessionTheme(gameLevelData.profession.id).border}`}>
                         {gameLevelData.strokes[currentStrokeIndex].hint.replace('請揮動: ', '')}
                     </div>
@@ -1781,7 +1781,7 @@ const GeminiApp = () => {
 
               {/* 結果彈出提示 */}
               {showPopupHint && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 animate-ping-once">
+                <div className="absolute top-1/2 left-[70%] transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-30 animate-ping-once">
                     <div className={`px-10 py-6 rounded-[2.5rem] shadow-2xl border-8 font-bold text-4xl whitespace-nowrap transform scale-110
                         ${showPopupHint.type === 'success' ? 'bg-green-50 border-green-400 text-green-600' : 'bg-red-50 border-red-400 text-red-600'}
                     `}>
@@ -1790,14 +1790,7 @@ const GeminiApp = () => {
                 </div>
               )}
 
-              {/* 底部職業心法 (Desc) - 放在畫布下方 */}
-              {gameLevelData && gameLevelData.profession.desc && (
-                  <div className="absolute -bottom-12 left-0 right-0 text-center">
-                      <span className="text-sm md:text-base text-slate-500 font-kai italic bg-white/80 backdrop-blur px-4 py-1.5 rounded-full shadow-sm border border-slate-200">
-                          “{gameLevelData.profession.desc}”
-                      </span>
-                  </div>
-              )}
+              {/* 底部職業心法 (Desc) - 已移除 */}
           </div>
         </div>
       )}
