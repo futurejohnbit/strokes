@@ -1534,35 +1534,22 @@ const GeminiApp = () => {
                           <h3 className="text-xl font-bold text-slate-500 font-kai tracking-widest">準備好上工了嗎？</h3>
                       </div>
 
-                      <button 
-                        onClick={connectMicrobit}
-                        className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
-                      >
-                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                        <Bluetooth size={32} className="animate-pulse" /> 
-                        <span>連結百變工具，開始體驗！</span>
-                      </button>
-                      
-                      <div className="relative flex py-2 items-center">
-                          <div className="flex-grow border-t border-slate-300"></div>
-                          <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-bold bg-white/50 px-3 py-1 rounded-full">或是</span>
-                          <div className="flex-grow border-t border-slate-300"></div>
-                      </div>
+                      <div className="flex flex-col gap-4 w-full">
+                        <button 
+                          onClick={connectMicrobit}
+                          className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
+                        >
+                          <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                          <Bluetooth size={32} className="animate-pulse" /> 
+                          <span>連結Micro:bit</span>
+                        </button>
 
-                      <div className="grid grid-cols-2 gap-5">
                         <button 
                            onClick={startGame}
-                           className="group px-6 py-5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-2xl border-2 border-amber-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-3"
+                           className="w-full py-4 bg-white hover:bg-amber-50 text-slate-500 hover:text-amber-600 font-bold rounded-2xl border-2 border-slate-200 hover:border-amber-200 transition-all hover:shadow-md flex items-center justify-center gap-2 group"
                         >
-                           <Play size={32} className="group-hover:scale-110 transition-transform" /> 
-                           <span className="text-lg">直接開始</span>
-                        </button>
-                        <button 
-                           onClick={startTestMode}
-                           className="group px-6 py-5 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-all hover:-translate-y-1 hover:shadow-md flex flex-col items-center justify-center gap-3"
-                        >
-                           <MonitorSmartphone size={32} className="group-hover:scale-110 transition-transform" /> 
-                           <span className="text-lg">自由練習</span>
+                           <span className="group-hover:scale-110 transition-transform">🚀</span>
+                           <span className="text-lg">跳過連接，直接開始</span>
                         </button>
                       </div>
 
@@ -1593,13 +1580,6 @@ const GeminiApp = () => {
                 >
                   <Play size={28} fill="currentColor" /> 
                   開始冒險
-                </button>
-                
-                <button 
-                  onClick={startTestMode}
-                  className="w-full py-3 bg-white hover:bg-slate-50 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 flex items-center justify-center gap-2 shadow-sm"
-                >
-                   <MonitorSmartphone size={20} /> 測試模式
                 </button>
               </div>
               
