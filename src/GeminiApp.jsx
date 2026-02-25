@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, RotateCcw, Sword, Shield, Zap, Award, Bluetooth, MonitorSmartphone, Hammer, Sprout, Flame, PenTool, Ruler, Scroll, Utensils, Droplets, Construction } from 'lucide-react';
+import AchievementModal from './components/AchievementModal';
+import { useGameTimer } from './utils/timerUtils';
+
+// Import assets
+import imgCarpenter from './assets/images/carpenter.png';
+import imgFarmer from './assets/images/farmer.png';
+import imgChef from './assets/images/chef.png';
+import imgScholar from './assets/images/scholar.png';
 
 // 遊戲常數與資料設定
 // 遊戲狀態常數
@@ -9,7 +17,8 @@ import { Play, RotateCcw, Sword, Shield, Zap, Award, Bluetooth, MonitorSmartphon
     WON: 'WON',
     LOST: 'LOST',
     TEST: 'TEST',
-    LEVEL_INTRO: 'LEVEL_INTRO'
+    LEVEL_INTRO: 'LEVEL_INTRO',
+    ACHIEVEMENT: 'ACHIEVEMENT'
   };
 
   // 自定義可愛 SVG 圖標組件
@@ -159,6 +168,7 @@ const PROFESSION_LEVELS = [
           id: 'carpenter',
           title: '小木匠',
           icon: <Icons.Hammer size={32} className="text-amber-600" />,
+          badgeImage: imgCarpenter,
           color: 'amber',
           desc: '拿起【鐵鎚與魯班尺】，感受木工的力道！',
           chars: [
@@ -186,6 +196,7 @@ const PROFESSION_LEVELS = [
           id: 'farmer',
           title: '小農夫',
           icon: <Icons.Seed size={32} className="text-green-600" />,
+          badgeImage: imgFarmer,
           color: 'green',
           desc: '拿起【鋤頭與鐮刀】，體會耕種的辛勞！',
           chars: [
@@ -213,6 +224,7 @@ const PROFESSION_LEVELS = [
           id: 'chef',
           title: '小廚神',
           icon: <Icons.Fire size={32} className="text-red-500" />,
+          badgeImage: imgChef,
           color: 'red',
           desc: '拿起【炒鍋與鍋鏟】，掌握火候的藝術！',
           chars: [
@@ -240,6 +252,7 @@ const PROFESSION_LEVELS = [
           id: 'scholar',
           title: '小書生',
           icon: <Icons.Brush size={32} className="text-indigo-600" />,
+          badgeImage: imgScholar,
           color: 'indigo',
           desc: '拿起【毛筆與宣紙】，修身養性練功夫！',
           chars: [
@@ -510,6 +523,10 @@ const GeminiApp = () => {
   const [showGuideArrow, setShowGuideArrow] = useState(null); // 'up', 'down', 'left', 'right', etc.
   const [showHint, setShowHint] = useState(false); // 控制提示顯示
   
+  // 計時器 Hook
+  const { startLevelTimer, stopLevelTimer, resetTotalTime, currentLevelTime, totalGameTime } = useGameTimer();
+  const [lastLevelDuration, setLastLevelDuration] = useState(0);
+
   // 動畫狀態
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationPoint, setAnimationPoint] = useState(null);
@@ -1177,16 +1194,13 @@ const GeminiApp = () => {
     
     // 檢查字索引是否超出 -> 進入下一個職業
     if (charIdx >= profession.chars.length) {
-        // 進入下一個職業介紹 (LEVEL_INTRO)
-        // 只有當不是第一個職業的第一個字時才顯示過場 (避免遊戲剛開始就顯示過場? 不，剛開始也可以顯示)
-        // 但這裡是用於 "完成當前職業" 後的跳轉
-        
         // 如果還有下一個職業
         if (profIdx + 1 < PROFESSION_LEVELS.length) {
-            setLevel(profIdx + 1);
-            setCurrentCharIndex(0);
-            setGameState(GAME_STATE.LEVEL_INTRO);
+            const time = stopLevelTimer();
+            setLastLevelDuration(time);
+            setGameState(GAME_STATE.ACHIEVEMENT);
         } else {
+            stopLevelTimer();
             setGameState(GAME_STATE.WON); // 全部通關
         }
         return;
@@ -1283,7 +1297,19 @@ const GeminiApp = () => {
 
   const startCurrentLevel = () => {
       setGameState(GAME_STATE.PLAYING);
+      startLevelTimer();
       fetchGameLevelData(level, currentCharIndex);
+  };
+
+  const handleNextLevel = () => {
+      const nextLevel = level + 1;
+      if (nextLevel < PROFESSION_LEVELS.length) {
+          setLevel(nextLevel);
+          setCurrentCharIndex(0);
+          setGameState(GAME_STATE.LEVEL_INTRO);
+      } else {
+          setGameState(GAME_STATE.WON);
+      }
   };
 
   const getProfessionTheme = (profId) => {
@@ -1794,6 +1820,16 @@ const GeminiApp = () => {
           </div>
         </div>
       )}
+
+      {/* 成就結算畫面 */}
+      <AchievementModal 
+        visible={gameState === GAME_STATE.ACHIEVEMENT}
+        levelTime={lastLevelDuration}
+        totalTime={totalGameTime}
+        onNext={handleNextLevel}
+        onMenu={() => setGameState(GAME_STATE.MENU)}
+        profession={PROFESSION_LEVELS[level]}
+      />
 
        {gameState === GAME_STATE.LEVEL_INTRO && PROFESSION_LEVELS[level] && (
         <div className={`p-10 rounded-[2.5rem] shadow-2xl text-center max-w-md w-full border-4 ${getProfessionTheme(PROFESSION_LEVELS[level].id).bg} ${getProfessionTheme(PROFESSION_LEVELS[level].id).border} animate-fade-in-up`}>
