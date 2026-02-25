@@ -508,6 +508,7 @@ const GeminiApp = () => {
   const [completedStrokes, setCompletedStrokes] = useState([]);
   const [shakeIntensity, setShakeIntensity] = useState(0);
   const [showGuideArrow, setShowGuideArrow] = useState(null); // 'up', 'down', 'left', 'right', etc.
+  const [showHint, setShowHint] = useState(false); // 控制提示顯示
   
   // 動畫狀態
   const [isAnimating, setIsAnimating] = useState(false);
@@ -914,12 +915,14 @@ const GeminiApp = () => {
          }, 1000);
        } else {
          setCurrentStrokeIndex(prev => prev + 1);
+         setShowHint(false); // 重置提示，準備下一筆
        }
 
      } else {
        // Fail
        addLog(`❌ 筆劃錯誤 (預期: ${targetStroke.direction})`);
        setFeedbackType('error');
+       setShowHint(true); // 錯誤後顯示提示
      }
    };
 
@@ -1258,6 +1261,7 @@ const GeminiApp = () => {
 
         setCurrentStrokeIndex(0);
         setCompletedStrokes([]);
+        setShowHint(false); // 重置提示
         setFeedback(charObj.story); // 顯示故事提示
         setFeedbackType('info');
         
@@ -1471,11 +1475,11 @@ const GeminiApp = () => {
   };
 
   return (
-    <div className={`h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
+    <div className={`min-h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
       
-      <header className="w-full max-w-md flex justify-between items-center p-4 shrink-0 z-50 bg-amber-50/90 backdrop-blur-sm">
+      <header className="w-full max-w-md flex justify-between items-center p-4 shrink-0 z-50">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-amber-700 font-kai drop-shadow-sm">
-          <span>狀元</span>
+          <div className="bg-amber-500 text-white px-2 py-1 rounded-lg shadow-sm">狀元</div>
           行行出狀元
         </h1>
         
@@ -1486,7 +1490,7 @@ const GeminiApp = () => {
         </div>
       </header>
 
-      <main className="flex-1 w-full overflow-y-auto flex flex-col items-center p-4 pb-20">
+      <main className="flex-1 w-full flex flex-col items-center p-4 pb-20">
       {gameState === GAME_STATE.MENU && (
         <div className="w-full max-w-6xl flex flex-col items-center">
           
@@ -1750,8 +1754,8 @@ const GeminiApp = () => {
               {/* 畫布容器 */}
               {renderCanvas()}
               
-              {/* 懸浮提示框 (Pop-up Hint) - 指引 */}
-              {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && !isAnimating && (
+              {/* 懸浮提示框 (Pop-up Hint) - 指引 (錯誤後才顯示) */}
+              {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && !isAnimating && showHint && (
                 <div className="absolute top-1/2 left-[70%] transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 animate-bounce">
                     <div className={`px-6 py-3 rounded-full shadow-2xl border-4 bg-white text-slate-800 font-bold text-2xl whitespace-nowrap ${getProfessionTheme(gameLevelData.profession.id).border}`}>
                         {gameLevelData.strokes[currentStrokeIndex].hint.replace('請揮動: ', '')}
