@@ -154,6 +154,12 @@ const STROKE_MAP = {
   'HENGZHE': 'right-down' // 橫折，映射為右下 (折角方向)
 };
 
+const isIgnoredUartMessage = (msg) => {
+  if (/^VI_\d+$/i.test(msg)) return true;
+  if (/^ID_PROP$/i.test(msg)) return true;
+  return false;
+};
+
 // 允許的筆劃名稱 (用於篩選字)
 const ALLOWED_STROKES = ['HENG', 'SHU', 'NA', 'DIAN', 'TI', 'HENGPIE', 'SHUGOU', 'HENGSHUGOU', 'HENGZHE', 'PIE'];
 
@@ -954,33 +960,36 @@ const GeminiApp = () => {
     const value = event.target.value;
     const decoder = new TextDecoder('utf-8');
     
-    // 1. 解碼
-    let rawData = decoder.decode(value);
-    
-    // 2. 移除 Null 字符 (關鍵修復) 和前後空白，並轉為大寫
-    // replace(/\0/g, '') 是為了移除 C-style 字串結尾的 null terminator
-    const data = rawData.replace(/\0/g, '').trim().toUpperCase();
+    const rawData = decoder.decode(value);
 
-    console.log('收到 Micro:bit 數據 (Raw):', rawData);
-    console.log('處理後數據 (Cleaned):', `"${data}"`, 'Length:', data.length);
-    
-    // 3. 詳細日誌：印出每個字符的編碼，檢查是否有隱藏字符
-    // for (let i = 0; i < data.length; i++) {
-    //     console.log(`Char[${i}]: ${data[i]} (${data.charCodeAt(i)})`);
-    // }
+    const tokens = rawData
+      .replace(/\0/g, '')
+      .split(/[\r\n]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
 
-    addLog(`收到信號: "${data}"`);
+    if (tokens.length === 0) return;
 
-    // 4. 查詢 Map
-    const direction = STROKE_MAP[data];
-    
-    if (direction) {
-      addLog(`👉 識別為: ${direction}`);
-      processStrokeInputRef.current(direction);
-    } else {
-      console.warn(`無法識別指令: "${data}" (Length: ${data.length})`);
-      // console.warn('有效指令列表:', Object.keys(STROKE_MAP));
-      addLog(`⚠️ 未知指令: ${data}`);
+    console.log('收到 Micro:bit 數據 (Raw):', rawData, 'Tokens:', tokens);
+
+    for (const token of tokens) {
+      const data = token.toUpperCase();
+
+      if (isIgnoredUartMessage(data)) {
+        addLog(`(忽略系統訊息) "${data}"`);
+        continue;
+      }
+
+      addLog(`收到信號: "${data}"`);
+
+      const direction = STROKE_MAP[data];
+      if (direction) {
+        addLog(`👉 識別為: ${direction}`);
+        processStrokeInputRef.current(direction);
+      } else {
+        console.warn(`無法識別指令: "${data}" (Length: ${data.length})`);
+        addLog(`⚠️ 未知指令: ${data}`);
+      }
     }
   };
 

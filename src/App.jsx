@@ -52,6 +52,12 @@ const STROKE_MAP = {
   'HENGSHUGOU': 'down'
 };
 
+const isIgnoredUartMessage = (msg) => {
+  if (/^VI_\d+$/i.test(msg)) return true;
+  if (/^ID_PROP$/i.test(msg)) return true;
+  return false;
+};
+
 const App = () => {
   const [gameState, setGameState] = useState(GAME_STATE.MENU);
   const [level, setLevel] = useState(0);
@@ -81,17 +87,36 @@ const App = () => {
   const handleMicrobitData = (event) => {
     const value = event.target.value;
     const decoder = new TextDecoder('utf-8');
-    const data = decoder.decode(value).trim();
-    console.log('收到 Micro:bit 數據:', data);
-    addLog(`收到信號: "${data}"`);
+    const rawData = decoder.decode(value);
 
-    const direction = STROKE_MAP[data];
-    if (direction) {
-      addLog(`👉 識別為: ${direction}`);
-      processStrokeInput(direction);
-    } else {
-      console.warn('未知筆劃指令:', data);
-      addLog(`⚠️ 未知指令: ${data}`);
+    const tokens = rawData
+      .replace(/\0/g, '')
+      .split(/[\r\n]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (tokens.length === 0) return;
+
+    console.log('收到 Micro:bit 數據 (Raw):', rawData, 'Tokens:', tokens);
+
+    for (const token of tokens) {
+      const data = token.toUpperCase();
+
+      if (isIgnoredUartMessage(data)) {
+        addLog(`(忽略系統訊息) "${data}"`);
+        continue;
+      }
+
+      addLog(`收到信號: "${data}"`);
+
+      const direction = STROKE_MAP[data];
+      if (direction) {
+        addLog(`👉 識別為: ${direction}`);
+        processStrokeInput(direction);
+      } else {
+        console.warn('未知筆劃指令:', data);
+        addLog(`⚠️ 未知指令: ${data}`);
+      }
     }
   };
 

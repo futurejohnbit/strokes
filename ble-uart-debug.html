@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>micro:bit BLE UART 調試面板（Web Bluetooth）</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2e;
+      --muted: #9fb2d0;
+      --text: #e6eefc;
+      --ok: #30c48d;
+      --warn: #ffb020;
+      --err: #ff5b6e;
+      --btn: #3b82f6;
+      --btn2: #2a3a58;
+      --border: rgba(255,255,255,0.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--sans); background: radial-gradient(1200px 800px at 20% 10%, #14234a 0%, var(--bg) 45%, #050814 100%); color: var(--text); }
+    a { color: #93c5fd; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; display: flex; align-items: center; gap: 10px; }
+    .badge { padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); }
+    .badge.ok { color: #b6ffe2; border-color: rgba(48,196,141,0.35); background: rgba(48,196,141,0.12); }
+    .badge.warn { color: #ffe4b5; border-color: rgba(255,176,32,0.35); background: rgba(255,176,32,0.10); }
+    .badge.err { color: #ffd0d6; border-color: rgba(255,91,110,0.35); background: rgba(255,91,110,0.10); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+    .card { border: 1px solid var(--border); background: rgba(17,26,46,0.92); border-radius: 14px; padding: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); }
+    .card h2 { margin: 0 0 12px; font-size: 14px; color: #cfe0ff; letter-spacing: 0.2px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 auto; }
+    .btn { background: var(--btn); color: white; border: none; border-radius: 10px; padding: 10px 12px; font-weight: 800; cursor: pointer; }
+    .btn.secondary { background: var(--btn2); border: 1px solid var(--border); }
+    .btn.danger { background: #ef4444; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+    select, input[type="text"], input[type="number"] {
+      width: 100%; padding: 10px 10px; border-radius: 10px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04); color: var(--text);
+      outline: none;
+    }
+    input[type="checkbox"] { transform: translateY(1px); }
+    .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .k { border: 1px solid var(--border); background: rgba(255,255,255,0.03); border-radius: 12px; padding: 10px; }
+    .k .t { font-size: 11px; color: var(--muted); }
+    .k .v { font-size: 18px; font-weight: 900; margin-top: 4px; font-family: var(--mono); }
+    .mono { font-family: var(--mono); }
+    .small { font-size: 12px; color: var(--muted); }
+    .pill { display: inline-flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+    .log { height: 320px; overflow: auto; border-radius: 12px; border: 1px solid var(--border); background: rgba(0,0,0,0.35); padding: 10px; font-family: var(--mono); font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+    .log .rx { color: #93c5fd; }
+    .log .tx { color: #86efac; }
+    .log .sys { color: #cbd5e1; }
+    .log .err { color: #fb7185; }
+    .log .warn { color: #fbbf24; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 960px) { .split { grid-template-columns: 1fr; } }
+    .hr { height: 1px; background: var(--border); margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>
+        micro:bit BLE UART 調試面板
+        <span id="statusBadge" class="badge warn">未連線</span>
+        <span id="deviceName" class="badge" style="display:none"></span>
+      </h1>
+      <div class="row" style="flex: 0 0 auto; align-items: center;">
+        <button id="btnConnect" class="btn">連線</button>
+        <button id="btnDisconnect" class="btn danger" disabled>斷線</button>
+        <button id="btnClear" class="btn secondary">清空</button>
+        <button id="btnExport" class="btn secondary">匯出</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>連線設定</h2>
+        <div class="split">
+          <div>
+            <label>掃描模式</label>
+            <select id="scanMode">
+              <option value="namePrefix">依名稱前綴（BBC micro:bit）</option>
+              <option value="acceptAll">顯示所有裝置（acceptAllDevices）</option>
+            </select>
+          </div>
+          <div>
+            <label>Service discovery 超時（毫秒）</label>
+            <input id="svcTimeoutMs" type="number" min="1000" step="500" value="5000" />
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="split">
+          <div>
+            <label>解析模式</label>
+            <select id="parseMode">
+              <option value="auto">自動</option>
+              <option value="stroke">筆劃指令（HENG/SHU/PIE/NA/DIAN）</option>
+              <option value="csv">CSV 數值（X,Y 或 D,seq,x,y,z）</option>
+              <option value="raw">原樣（只顯示文字）</option>
+            </select>
+          </div>
+          <div>
+            <label>忽略訊息前綴（逗號分隔）</label>
+            <input id="ignorePrefixes" type="text" value="VI_,ID_PROP" />
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="split">
+          <div class="pill">
+            <input id="dropOld" type="checkbox" checked />
+            <span class="small">丟舊留新（避免排隊延遲）</span>
+          </div>
+          <div class="pill">
+            <input id="stripNull" type="checkbox" checked />
+            <span class="small">移除 \\0</span>
+          </div>
+          <div class="pill">
+            <input id="appendNewline" type="checkbox" checked />
+            <span class="small">送出自動加 \\n</span>
+          </div>
+          <div class="pill">
+            <input id="enableLog" type="checkbox" checked />
+            <span class="small">記錄 Log（高頻可能變慢）</span>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="split">
+          <div>
+            <label>Log 速率（每秒最多行）</label>
+            <input id="logRate" type="number" min="0" step="10" value="50" />
+          </div>
+          <div>
+            <label>顯示 Log 行數上限</label>
+            <input id="logLimit" type="number" min="200" step="200" value="2000" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>即時指標</h2>
+        <div class="kv">
+          <div class="k"><div class="t">每秒行數（Hz）</div><div id="mHz" class="v">0.0</div></div>
+          <div class="k"><div class="t">平均間隔（ms）</div><div id="mAvgDt" class="v">0</div></div>
+          <div class="k"><div class="t">抖動 P95（ms）</div><div id="mP95Dt" class="v">0</div></div>
+          <div class="k"><div class="t">收到封包/行</div><div id="mCounts" class="v">0 / 0</div></div>
+          <div class="k"><div class="t">估計丟行（seq）</div><div id="mSeqGaps" class="v">—</div></div>
+          <div class="k"><div class="t">最新資料</div><div id="mLatest" class="v" style="font-size: 12px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">—</div></div>
+        </div>
+        <div class="hr"></div>
+        <div class="small">
+          Web Bluetooth 需要使用者手動點擊「連線」。若 Windows 偶發服務發現超時，通常需要在系統藍牙清單移除裝置後重試。
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>收發與日誌</h2>
+        <div class="split">
+          <div>
+            <label>送出（寫入 RX characteristic）</label>
+            <div class="row">
+              <input id="txInput" type="text" placeholder="例如：PING / START / 1 / HENG" />
+              <button id="btnSend" class="btn secondary" disabled>送出</button>
+            </div>
+            <div class="small" style="margin-top: 8px;">
+              若 micro:bit 端用換行當分隔，請保持「送出自動加 \\n」勾選。
+            </div>
+          </div>
+          <div>
+            <label>解析結果（只顯示最新一筆）</label>
+            <div id="parsedBox" class="log" style="height: 120px;"></div>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <label>Log</label>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const UART_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+    const UART_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+    const STROKE_MAP = {
+      HENG: 'RIGHT',
+      SHU: 'DOWN',
+      PIE: 'LEFT',
+      NA: 'UP',
+      DIAN: 'TAP'
+    };
+
+    const el = {
+      statusBadge: document.getElementById('statusBadge'),
+      deviceName: document.getElementById('deviceName'),
+      btnConnect: document.getElementById('btnConnect'),
+      btnDisconnect: document.getElementById('btnDisconnect'),
+      btnClear: document.getElementById('btnClear'),
+      btnExport: document.getElementById('btnExport'),
+      btnSend: document.getElementById('btnSend'),
+      txInput: document.getElementById('txInput'),
+      log: document.getElementById('log'),
+      parsedBox: document.getElementById('parsedBox'),
+      scanMode: document.getElementById('scanMode'),
+      svcTimeoutMs: document.getElementById('svcTimeoutMs'),
+      parseMode: document.getElementById('parseMode'),
+      ignorePrefixes: document.getElementById('ignorePrefixes'),
+      dropOld: document.getElementById('dropOld'),
+      stripNull: document.getElementById('stripNull'),
+      appendNewline: document.getElementById('appendNewline'),
+      enableLog: document.getElementById('enableLog'),
+      logRate: document.getElementById('logRate'),
+      logLimit: document.getElementById('logLimit'),
+      mHz: document.getElementById('mHz'),
+      mAvgDt: document.getElementById('mAvgDt'),
+      mP95Dt: document.getElementById('mP95Dt'),
+      mCounts: document.getElementById('mCounts'),
+      mSeqGaps: document.getElementById('mSeqGaps'),
+      mLatest: document.getElementById('mLatest')
+    };
+
+    let bluetoothDevice = null;
+    let txCharacteristic = null;
+    let rxCharacteristic = null;
+    let decoder = new TextDecoder('utf-8');
+    let encoder = new TextEncoder();
+
+    let packetCount = 0;
+    let lineCount = 0;
+    let rawBuffer = '';
+    let latestLine = '';
+    let latestParsed = null;
+
+    let recentLineTimes = [];
+    let recentDts = [];
+    let lastLineAt = 0;
+
+    let seqLast = null;
+    let seqGaps = 0;
+    let seqSeen = 0;
+    let seqBad = 0;
+
+    let logQueue = [];
+    let logLines = [];
+    let logTokens = { t: performance.now(), n: 0 };
+
+    function setStatus(kind, text) {
+      el.statusBadge.className = `badge ${kind}`;
+      el.statusBadge.textContent = text;
+    }
+
+    function setConnectedUi(connected) {
+      el.btnConnect.disabled = connected;
+      el.btnDisconnect.disabled = !connected;
+      el.btnSend.disabled = !connected || !rxCharacteristic;
+      if (!connected) {
+        el.deviceName.style.display = 'none';
+      }
+    }
+
+    function nowMs() {
+      return performance.now();
+    }
+
+    function getIgnorePrefixes() {
+      return el.ignorePrefixes.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function shouldIgnore(line) {
+      const prefixes = getIgnorePrefixes();
+      for (const p of prefixes) {
+        if (line.startsWith(p)) return true;
+      }
+      return false;
+    }
+
+    function log(type, msg) {
+      if (!el.enableLog.checked && type !== 'err') return;
+      const rate = Math.max(0, Number(el.logRate.value) || 0);
+      const t = nowMs();
+      if (t - logTokens.t >= 1000) {
+        logTokens.t = t;
+        logTokens.n = 0;
+      }
+      if (rate > 0 && logTokens.n >= rate) return;
+      logTokens.n += 1;
+      const time = new Date().toLocaleTimeString();
+      logQueue.push({ type, time, msg });
+    }
+
+    function flushLog() {
+      if (logQueue.length === 0) return;
+      const limit = Math.max(200, Number(el.logLimit.value) || 2000);
+      for (const item of logQueue) {
+        const line = `[${item.time}] ${item.msg}`;
+        logLines.push({ type: item.type, line });
+      }
+      logQueue = [];
+      if (logLines.length > limit) logLines = logLines.slice(logLines.length - limit);
+      const frag = document.createDocumentFragment();
+      for (const { type, line } of logLines.slice(-Math.min(limit, 400))) {
+        const div = document.createElement('div');
+        div.className = type;
+        div.textContent = line;
+        frag.appendChild(div);
+      }
+      el.log.innerHTML = '';
+      el.log.appendChild(frag);
+      el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    function exportLog() {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        device: bluetoothDevice ? { name: bluetoothDevice.name, id: bluetoothDevice.id } : null,
+        metrics: {
+          packetCount, lineCount,
+          seqSeen, seqGaps, seqBad
+        },
+        latestLine,
+        latestParsed,
+        log: logLines
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `microbit-ble-uart-debug-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function connect() {
+      if (!navigator.bluetooth) {
+        setStatus('err', '不支援');
+        log('err', '此瀏覽器不支援 Web Bluetooth。請使用 Chrome / Edge。');
+        return;
+      }
+
+      try {
+        setStatus('warn', '請求裝置中');
+        const scanMode = el.scanMode.value;
+        const requestOptions = scanMode === 'acceptAll'
+          ? { acceptAllDevices: true, optionalServices: [UART_SERVICE_UUID] }
+          : { filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] };
+
+        bluetoothDevice = await navigator.bluetooth.requestDevice(requestOptions);
+        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        el.deviceName.textContent = bluetoothDevice.name || 'micro:bit';
+        el.deviceName.style.display = 'inline-flex';
+        log('sys', `已選擇裝置：${bluetoothDevice.name || bluetoothDevice.id}`);
+
+        setStatus('warn', '連線中');
+        const server = await bluetoothDevice.gatt.connect();
+
+        const timeoutMs = Math.max(1000, Number(el.svcTimeoutMs.value) || 5000);
+        const services = await Promise.race([
+          server.getPrimaryServices(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Service_Discovery_Timeout')), timeoutMs))
+        ]);
+
+        const uartService = services.find(s => (s.uuid || '').toLowerCase() === UART_SERVICE_UUID);
+        if (!uartService) throw new Error('未找到 UART Service（請確認 micro:bit 有啟用 UART）');
+
+        let rx = null;
+        let tx = null;
+        try { rx = await uartService.getCharacteristic(UART_RX_UUID); } catch {}
+        try { tx = await uartService.getCharacteristic(UART_TX_UUID); } catch {}
+
+        if (!rx || !tx) {
+          const characteristics = await uartService.getCharacteristics();
+          for (const c of characteristics) {
+            if (!rx && (c.properties.write || c.properties.writeWithoutResponse)) rx = c;
+            if (!tx && (c.properties.notify || c.properties.indicate)) tx = c;
+          }
+        }
+
+        if (!tx) throw new Error('未找到可通知的 TX characteristic（Notify/Indicate）');
+        txCharacteristic = tx;
+        rxCharacteristic = rx;
+
+        await txCharacteristic.startNotifications();
+        txCharacteristic.addEventListener('characteristicvaluechanged', onNotification);
+
+        packetCount = 0;
+        lineCount = 0;
+        rawBuffer = '';
+        latestLine = '';
+        latestParsed = null;
+        recentLineTimes = [];
+        recentDts = [];
+        lastLineAt = 0;
+        seqLast = null;
+        seqGaps = 0;
+        seqSeen = 0;
+        seqBad = 0;
+
+        setStatus('ok', '已連線');
+        setConnectedUi(true);
+        log('sys', `已連線：UART OK；RX=${rxCharacteristic ? '可寫' : '不可寫'}，TX=可通知`);
+      } catch (e) {
+        const msg = e && e.message ? e.message : String(e);
+        if (msg === 'Service_Discovery_Timeout' || msg.includes('Service_Discovery_Timeout')) {
+          setStatus('err', '服務超時');
+          log('err', '服務發現超時。建議到 Windows 藍牙設定移除該 micro:bit 後重試，並按 micro:bit Reset。');
+        } else {
+          setStatus('err', '連線失敗');
+          log('err', `連線失敗：${msg}`);
+        }
+        setConnectedUi(false);
+      }
+    }
+
+    function onDisconnected() {
+      setStatus('warn', '已斷線');
+      log('warn', '裝置已斷線。');
+      txCharacteristic = null;
+      rxCharacteristic = null;
+      setConnectedUi(false);
+    }
+
+    function disconnect() {
+      try {
+        if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) {
+          bluetoothDevice.gatt.disconnect();
+        }
+      } catch {}
+      onDisconnected();
+    }
+
+    function parseLine(line) {
+      const mode = el.parseMode.value;
+      if (mode === 'raw') return { type: 'raw', text: line };
+
+      const upper = line.trim().toUpperCase();
+      if (mode === 'stroke' || mode === 'auto') {
+        if (STROKE_MAP[upper]) return { type: 'stroke', token: upper, direction: STROKE_MAP[upper] };
+      }
+
+      const hasComma = line.includes(',');
+      if (mode === 'csv' || (mode === 'auto' && hasComma)) {
+        const parts = line.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        if (parts.length === 0) return { type: 'text', text: line };
+        const head = parts[0].toUpperCase();
+        if ((head === 'D' || head === 'S' || head === 'T') && parts.length >= 2) {
+          const seq = Number(parts[1]);
+          const vals = parts.slice(2).map(v => Number(v));
+          return { type: 'csv', format: head, seq: Number.isFinite(seq) ? seq : null, values: vals.map(v => Number.isFinite(v) ? v : null) };
+        }
+        const vals = parts.map(v => Number(v));
+        return { type: 'csv', format: 'CSV', seq: null, values: vals.map(v => Number.isFinite(v) ? v : null) };
+      }
+
+      return { type: 'text', text: line };
+    }
+
+    function updateSeqMetrics(parsed) {
+      if (!parsed || parsed.type !== 'csv') return;
+      if (parsed.seq === null || !Number.isInteger(parsed.seq)) return;
+      seqSeen += 1;
+      if (seqLast === null) {
+        seqLast = parsed.seq;
+        return;
+      }
+      if (parsed.seq <= seqLast) {
+        seqBad += 1;
+        seqLast = parsed.seq;
+        return;
+      }
+      const diff = parsed.seq - seqLast;
+      if (diff > 1) seqGaps += (diff - 1);
+      seqLast = parsed.seq;
+    }
+
+    function onLine(line) {
+      const t = nowMs();
+      lineCount += 1;
+      latestLine = line;
+      if (lastLineAt > 0) {
+        const dt = t - lastLineAt;
+        recentDts.push(dt);
+        if (recentDts.length > 240) recentDts = recentDts.slice(recentDts.length - 240);
+      }
+      lastLineAt = t;
+      recentLineTimes.push(t);
+      const cutoff = t - 2000;
+      while (recentLineTimes.length && recentLineTimes[0] < cutoff) recentLineTimes.shift();
+      const parsed = parseLine(line);
+      latestParsed = parsed;
+      updateSeqMetrics(parsed);
+      log('rx', `RX ${line}`);
+    }
+
+    function onNotification(event) {
+      packetCount += 1;
+      const value = event.target.value;
+      const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      let chunk = decoder.decode(bytes);
+      if (el.stripNull.checked) chunk = chunk.replace(/\0/g, '');
+      if (!chunk) return;
+
+      rawBuffer += chunk;
+      const lines = rawBuffer.split('\n');
+      rawBuffer = lines.pop() || '';
+      if (el.dropOld.checked) {
+        let lastValid = '';
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          if (shouldIgnore(line)) continue;
+          lastValid = line;
+        }
+        if (lastValid) onLine(lastValid);
+        return;
+      }
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (shouldIgnore(line)) continue;
+        onLine(line);
+      }
+    }
+
+    function percentile(arr, p) {
+      if (!arr.length) return 0;
+      const sorted = arr.slice().sort((a, b) => a - b);
+      const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((p / 100) * (sorted.length - 1))));
+      return sorted[idx];
+    }
+
+    function render() {
+      const t = nowMs();
+      const hz = recentLineTimes.length ? (recentLineTimes.length / 2) : 0;
+      const avgDt = recentDts.length ? (recentDts.reduce((a, b) => a + b, 0) / recentDts.length) : 0;
+      const p95 = percentile(recentDts, 95);
+
+      el.mHz.textContent = hz.toFixed(1);
+      el.mAvgDt.textContent = avgDt ? Math.round(avgDt) : 0;
+      el.mP95Dt.textContent = p95 ? Math.round(p95) : 0;
+      el.mCounts.textContent = `${packetCount} / ${lineCount}`;
+      el.mLatest.textContent = latestLine || '—';
+
+      if (seqSeen > 0) {
+        el.mSeqGaps.textContent = `${seqGaps}（序號筆數 ${seqSeen}，異常 ${seqBad}）`;
+      } else {
+        el.mSeqGaps.textContent = '—';
+      }
+
+      el.parsedBox.textContent = latestParsed ? JSON.stringify(latestParsed, null, 2) : '';
+
+      if (t - lastFlushAt >= 120) {
+        flushLog();
+        lastFlushAt = t;
+      }
+      requestAnimationFrame(render);
+    }
+
+    let lastFlushAt = 0;
+    requestAnimationFrame(render);
+
+    async function send() {
+      if (!bluetoothDevice || !bluetoothDevice.gatt || !bluetoothDevice.gatt.connected) {
+        log('err', '未連線，無法送出。');
+        return;
+      }
+      if (!rxCharacteristic) {
+        log('err', '未找到可寫入的 RX characteristic。');
+        return;
+      }
+      const val = (el.txInput.value || '').trim();
+      if (!val) return;
+      const payload = el.appendNewline.checked ? (val + '\n') : val;
+      try {
+        await rxCharacteristic.writeValue(encoder.encode(payload));
+        log('tx', `TX ${val}`);
+        el.txInput.value = '';
+      } catch (e) {
+        const msg = e && e.message ? e.message : String(e);
+        log('err', `送出失敗：${msg}`);
+      }
+    }
+
+    function clearAll() {
+      packetCount = 0;
+      lineCount = 0;
+      rawBuffer = '';
+      latestLine = '';
+      latestParsed = null;
+      recentLineTimes = [];
+      recentDts = [];
+      lastLineAt = 0;
+      seqLast = null;
+      seqGaps = 0;
+      seqSeen = 0;
+      seqBad = 0;
+      logQueue = [];
+      logLines = [];
+      el.log.innerHTML = '';
+      el.parsedBox.textContent = '';
+      log('sys', '已清空。');
+    }
+
+    el.btnConnect.addEventListener('click', () => connect());
+    el.btnDisconnect.addEventListener('click', () => disconnect());
+    el.btnClear.addEventListener('click', () => clearAll());
+    el.btnExport.addEventListener('click', () => exportLog());
+    el.btnSend.addEventListener('click', () => send());
+    el.txInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') send();
+    });
+
+    setConnectedUi(false);
+    log('sys', '就緒：點「連線」後選擇 BBC micro:bit。');
+  </script>
+</body>
+</html>
