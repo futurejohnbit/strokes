@@ -1519,9 +1519,17 @@ const GeminiApp = () => {
         </h1>
         
         {/* 藍牙狀態顯示 */}
-        <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
-          <Bluetooth size={14} className={isConnected ? "text-green-600" : "text-slate-400"} /> 
-          <span>{isConnected ? '已連接' : '未連接'}</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.location.assign('/debug')}
+            className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
+          >
+            調試
+          </button>
+          <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
+            <Bluetooth size={14} className={isConnected ? "text-green-600" : "text-slate-400"} /> 
+            <span>{isConnected ? '已連接' : '未連接'}</span>
+          </div>
         </div>
       </header>
 
