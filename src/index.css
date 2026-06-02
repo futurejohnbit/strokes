@@ -7,6 +7,11 @@ body {
   /* overflow: hidden; */
   /* touch-action: none; */
   font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  -webkit-text-size-adjust: 100%;
 }
 
 /* 定義 Free HK Kai 風格字體 */
@@ -19,4 +24,9 @@ body {
 
 .font-kai {
   font-family: 'Free HK Kai', 'KaiTi', 'BiauKai', 'DFKai-SB', serif;
+}
+
+button,
+a[role="button"] {
+  touch-action: manipulation;
 }

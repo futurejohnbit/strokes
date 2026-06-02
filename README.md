@@ -5,7 +5,29 @@
 
 ## 🔗 在線演示 (Demo)
 👉 **[點擊這裡體驗遊戲](https://strokesyyt1-qmi12nz4m-john-tyys-projects.vercel.app)**
-*(需使用支持 Web Bluetooth 的瀏覽器，如 Chrome 或 Edge)*
+*(桌機建議使用 Chrome / Edge；iPad Safari 需先安裝並啟用 WebBLE 擴充)*
+
+## iPad Safari 直連 micro:bit
+
+如果你想在 iPad 上直接連接 micro:bit，請先完成以下步驟：
+
+1. 用 iPad Safari 打開 WebBLE 安裝頁：`https://ioswebble.com/setup.html`
+2. 安裝對應的 companion app
+3. 到「設定 > Safari > 擴充功能」啟用 WebBLE
+4. 回到本專案頁面重新整理，再點「連結Micro:bit」
+
+說明：
+
+- 本專案正式遊戲 `/` 與調試頁 `/debug` 都會自動檢查 iPad Safari 的藍牙相容層狀態
+- 若未啟用 WebBLE，頁面會顯示安裝提示，不會直接崩潰
+- 若電池服務不可用，主遊戲仍可連線與接收筆劃資料
+
+排查建議：
+
+- 確認 micro:bit 已燒錄啟用 BLE UART 的程式
+- 確認 micro:bit 正在廣播藍牙，並且未被其他裝置佔用
+- 若 iPad 看不到裝置，先重整頁面，再重新進入選擇裝置流程
+- 若只想先驗證資料流，優先打開 `/debug`
 
 ## 🚀 本地開發
 

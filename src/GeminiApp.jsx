@@ -2,6 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, RotateCcw, Sword, Shield, Zap, Award, Bluetooth, MonitorSmartphone, Hammer, Sprout, Flame, PenTool, Ruler, Scroll, Utensils, Droplets, Construction } from 'lucide-react';
 import AchievementModal from './components/AchievementModal';
 import { useGameTimer } from './utils/timerUtils';
+import {
+  ensureBleRequestAvailable,
+  getBleInstallSteps,
+  getBlePlatformHint,
+  getBleSetupUrl,
+  getBleSupportSnapshot,
+  initBleSupport,
+  subscribeBleSupport,
+  translateBleError,
+} from './utils/bleSupport';
 
 // Import assets
 import imgCarpenter from './assets/images/carpenter.png';
@@ -528,6 +538,11 @@ const GeminiApp = () => {
   const [shakeIntensity, setShakeIntensity] = useState(0);
   const [showGuideArrow, setShowGuideArrow] = useState(null); // 'up', 'down', 'left', 'right', etc.
   const [showHint, setShowHint] = useState(false); // 控制提示顯示
+  const hintTimeoutRef = useRef(null);
+
+  // 電池狀態
+  const [batteryLevel, setBatteryLevel] = useState(null);
+  const [batteryWarning, setBatteryWarning] = useState(false);
   
   // 計時器 Hook
   const { startLevelTimer, stopLevelTimer, resetTotalTime, currentLevelTime, totalGameTime } = useGameTimer();
@@ -550,6 +565,8 @@ const GeminiApp = () => {
   // 調試日誌狀態
   const [debugLogs, setDebugLogs] = useState([]);
   const [showDebug, setShowDebug] = useState(true); // 默認開啟調試模式
+  const [bleSupport, setBleSupport] = useState(getBleSupportSnapshot());
+  const [connectionStep, setConnectionStep] = useState('');
 
   // 添加日誌函數
   const addLog = (msg) => {
@@ -573,6 +590,20 @@ const GeminiApp = () => {
     }
   }, []);
 
+  useEffect(() => {
+    initBleSupport().catch((err) => {
+      const friendlyMessage = translateBleError(err);
+      setConnectionError(friendlyMessage);
+      setConnectionStep('相容層初始化失敗');
+    });
+
+    const unsubscribe = subscribeBleSupport((snapshot) => {
+      setBleSupport(snapshot);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const playSuccessSound = () => {
     if (!successAudioRef.current) return;
     const ctx = successAudioRef.current;
@@ -594,6 +625,29 @@ const GeminiApp = () => {
     
     osc.start(now);
     osc.stop(now + 0.5);
+  };
+
+  const playErrorSound = () => {
+    if (!successAudioRef.current) return;
+    const ctx = successAudioRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
+    
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.type = 'sawtooth';
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+    
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+    
+    osc.start(now);
+    osc.stop(now + 0.3);
   };
 
   // 使用 Ref 來解決 React Event Listener Closure Trap
@@ -868,6 +922,7 @@ const GeminiApp = () => {
             addLog(`❌ 錯誤 (預期: ${targetStroke.direction})`);
             setFeedback(`方向錯誤 (預期: ${targetStroke.direction})`);
             setFeedbackType('error');
+            playErrorSound();
             setShowPopupHint({ text: '再試一次！', type: 'error' }); // 彈出提示
             setTimeout(() => setShowPopupHint(null), 1000);
         }
@@ -945,7 +1000,13 @@ const GeminiApp = () => {
        // Fail
        addLog(`❌ 筆劃錯誤 (預期: ${targetStroke.direction})`);
        setFeedbackType('error');
+       playErrorSound();
        setShowHint(true); // 錯誤後顯示提示
+       
+       if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
+       hintTimeoutRef.current = setTimeout(() => {
+           setShowHint(false);
+       }, 3000);
      }
    };
 
@@ -980,6 +1041,18 @@ const GeminiApp = () => {
         continue;
       }
 
+      if (data.startsWith('BATTERY_')) {
+          const levelStr = data.replace('BATTERY_', '');
+          const levelNum = parseInt(levelStr, 10);
+          if (!isNaN(levelNum)) {
+              setBatteryLevel(levelNum);
+              if (levelNum <= 10) {
+                  setBatteryWarning(true);
+              }
+          }
+          continue;
+      }
+
       addLog(`收到信號: "${data}"`);
 
       const direction = STROKE_MAP[data];
@@ -997,16 +1070,21 @@ const GeminiApp = () => {
   const connectMicrobit = async () => {
     try {
       setConnectionError('');
+      setConnectionStep('檢查藍牙環境');
       addLog('開始連接...');
+      await ensureBleRequestAvailable();
       
+      setConnectionStep('等待選擇 micro:bit');
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'BBC micro:bit' }],
-        optionalServices: [UART_SERVICE_UUID]
+        optionalServices: [UART_SERVICE_UUID, 'battery_service']
       });
 
       addLog('設備已選擇，正在連接 GATT...');
+      setConnectionStep('連接 GATT');
       const server = await device.gatt.connect();
       addLog('GATT 連接成功，正在獲取服務...');
+      setConnectionStep('搜尋 UART 服務');
 
       const getServicesPromise = server.getPrimaryServices();
       const timeoutPromise = new Promise((_, reject) => 
@@ -1030,6 +1108,7 @@ const GeminiApp = () => {
       }
       
       addLog('找到 UART 服務，正在獲取特徵值...');
+      setConnectionStep('配置通知通道');
       
       const TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; 
       const RX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -1060,6 +1139,7 @@ const GeminiApp = () => {
       }
 
       addLog('正在啟用通知...');
+      setConnectionStep('啟用通知');
       try {
         await characteristic.startNotifications();
       } catch (e) {
@@ -1071,18 +1151,45 @@ const GeminiApp = () => {
 
       device.addEventListener('gattserverdisconnected', onDisconnected);
 
+      // 嘗試獲取電池服務
+      try {
+        setConnectionStep('讀取電池資訊');
+        const batteryService = await server.getPrimaryService('battery_service');
+        const batteryLevelChar = await batteryService.getCharacteristic('battery_level');
+        
+        const initialLevel = await batteryLevelChar.readValue();
+        const levelVal = initialLevel.getUint8(0);
+        setBatteryLevel(levelVal);
+        if (levelVal <= 10) setBatteryWarning(true);
+
+        await batteryLevelChar.startNotifications();
+        batteryLevelChar.addEventListener('characteristicvaluechanged', (e) => {
+          const newLevel = e.target.value.getUint8(0);
+          setBatteryLevel(newLevel);
+          if (newLevel <= 10) setBatteryWarning(true);
+        });
+        addLog('電池服務已啟用');
+      } catch (e) {
+        addLog('未提供標準電池服務或獲取失敗');
+      }
+
       bluetoothDeviceRef.current = device;
       setDeviceName(device.name);
       setIsConnected(true);
       setFeedback('Micro:bit 連接成功！');
       setFeedbackType('success');
+      setConnectionStep('已連接');
       addLog('連接流程全部完成！');
 
     } catch (error) {
       console.error('連接失敗:', error);
-      addLog('錯誤: ' + error.message);
-      setConnectionError(error.message);
+      const friendlyMessage = translateBleError(error);
+      addLog('錯誤: ' + friendlyMessage);
+      setConnectionError(friendlyMessage);
       setIsConnected(false);
+      if (!connectionStep) {
+        setConnectionStep('連接失敗');
+      }
     }
   };
 
@@ -1090,6 +1197,7 @@ const GeminiApp = () => {
     console.log('Micro:bit 已斷開');
     setIsConnected(false);
     setDeviceName('');
+    setConnectionStep('已斷開');
     setFeedback('Micro:bit 已斷開連接');
     setFeedbackType('error');
   };
@@ -1520,6 +1628,12 @@ const GeminiApp = () => {
         
         {/* 藍牙狀態顯示 */}
         <div className="flex items-center gap-2">
+          {batteryLevel !== null && (
+             <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-1 shadow-sm ${batteryLevel <= 10 ? 'bg-red-100 text-red-700 border border-red-300 animate-pulse' : 'bg-green-100 text-green-700 border border-green-300'}`}>
+                <span>🔋</span>
+                <span className="font-bold">{batteryLevel}%</span>
+             </div>
+          )}
           <button
             onClick={() => window.location.assign('/debug')}
             className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
@@ -1533,7 +1647,23 @@ const GeminiApp = () => {
         </div>
       </header>
 
-      <main className="flex-1 w-full flex flex-col items-center p-4 pb-20">
+      <main className="flex-1 w-full flex flex-col items-center p-4 pb-20 relative">
+      {/* 電池警告彈窗 */}
+      {batteryWarning && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[100] animate-bounce">
+          <div className="bg-red-500 text-white px-6 py-4 rounded-full shadow-2xl font-bold flex items-center gap-3 border-4 border-red-700">
+            <span className="text-2xl">⚠️</span>
+            <span className="text-lg">注意：Micro:bit 電池快沒電了 (低於10%)！</span>
+            <button 
+                onClick={() => setBatteryWarning(false)} 
+                className="ml-4 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl transition-colors"
+            >
+                我知道了
+            </button>
+          </div>
+        </div>
+      )}
+
       {gameState === GAME_STATE.MENU && (
         <div className="w-full max-w-6xl flex flex-col items-center">
           
@@ -1584,12 +1714,47 @@ const GeminiApp = () => {
                       <div className="flex flex-col gap-4 w-full">
                         <button 
                           onClick={connectMicrobit}
+                          disabled={bleSupport.status === 'loading'}
                           className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
                         >
                           <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                           <Bluetooth size={32} className="animate-pulse" /> 
-                          <span>連結Micro:bit</span>
+                          <span>{bleSupport.status === 'loading' ? '檢查藍牙中...' : '連結Micro:bit'}</span>
                         </button>
+
+                        <div className={`rounded-2xl border px-4 py-4 text-left text-sm shadow-sm ${
+                          bleSupport.status === 'ready'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : bleSupport.status === 'needs-extension'
+                              ? 'bg-amber-50 border-amber-200 text-amber-900'
+                              : bleSupport.status === 'error'
+                                ? 'bg-red-50 border-red-200 text-red-700'
+                                : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}>
+                          <div className="font-bold mb-2">藍牙環境</div>
+                          <div>{getBlePlatformHint(bleSupport)}</div>
+                          {connectionStep && (
+                            <div className="mt-2 text-xs font-semibold opacity-80">目前步驟：{connectionStep}</div>
+                          )}
+                          {bleSupport.isIOSSafari && (
+                            <div className="mt-3 space-y-2">
+                              <div className="text-xs font-bold uppercase tracking-wide opacity-70">iPad Safari 連線前</div>
+                              <ol className="list-decimal pl-5 space-y-1">
+                                {getBleInstallSteps().map((step) => (
+                                  <li key={step}>{step}</li>
+                                ))}
+                              </ol>
+                              <a
+                                href={getBleSetupUrl()}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex rounded-xl bg-white px-3 py-2 font-semibold text-blue-600 shadow-sm ring-1 ring-blue-200 hover:bg-blue-50"
+                              >
+                                打開 WebBLE 安裝頁
+                              </a>
+                            </div>
+                          )}
+                        </div>
 
                         <button 
                            onClick={startGame}
@@ -1604,7 +1769,19 @@ const GeminiApp = () => {
                       {connectionError && (
                         <div className="mt-2 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl flex items-start gap-2 animate-shake shadow-sm">
                           <Zap size={16} className="mt-0.5 flex-shrink-0" />
-                          <span className="font-bold">{connectionError}</span>
+                          <div>
+                            <div className="font-bold">{connectionError}</div>
+                            {bleSupport.isIOSSafari && (
+                              <a
+                                href={getBleSetupUrl()}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-1 inline-flex text-xs font-semibold text-blue-600 hover:text-blue-700"
+                              >
+                                查看 iPad Safari 安裝步驟
+                              </a>
+                            )}
+                          </div>
                         </div>
                       )}
                   </div>
@@ -1619,6 +1796,12 @@ const GeminiApp = () => {
               
               <h2 className="text-4xl font-bold mb-2 text-slate-800 font-kai">連接成功！</h2>
               <p className="text-slate-500 mb-8 font-medium text-lg">百變工具已就緒，準備上工！</p>
+              {deviceName && (
+                <div className="mb-4 text-sm text-slate-500">已連接裝置：{deviceName}</div>
+              )}
+              {connectionStep && (
+                <div className="mb-6 text-xs font-semibold tracking-wide uppercase text-green-700">狀態：{connectionStep}</div>
+              )}
               
               <div className="flex flex-col gap-3">
                 <button 
@@ -1800,7 +1983,7 @@ const GeminiApp = () => {
               {/* 懸浮提示框 (Pop-up Hint) - 指引 (錯誤後才顯示) */}
               {gameLevelData && gameLevelData.strokes[currentStrokeIndex] && !isAnimating && showHint && (
                 <div className="absolute top-1/2 left-[70%] transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 animate-bounce">
-                    <div className={`px-6 py-3 rounded-full shadow-2xl border-4 bg-white text-slate-800 font-bold text-2xl whitespace-nowrap ${getProfessionTheme(gameLevelData.profession.id).border}`}>
+                    <div className={`px-10 py-5 rounded-full shadow-2xl border-[6px] bg-white text-slate-800 font-bold text-5xl whitespace-nowrap ${getProfessionTheme(gameLevelData.profession.id).border}`}>
                         {gameLevelData.strokes[currentStrokeIndex].hint.replace('請揮動: ', '')}
                     </div>
                 </div>

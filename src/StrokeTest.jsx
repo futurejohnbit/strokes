@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bluetooth, Trash2, Unplug } from 'lucide-react';
+import {
+  ensureBleRequestAvailable,
+  getBleInstallSteps,
+  getBlePlatformHint,
+  getBleSetupUrl,
+  getBleSupportSnapshot,
+  initBleSupport,
+  subscribeBleSupport,
+  translateBleError,
+} from './utils/bleSupport';
 
 const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 
@@ -24,6 +34,7 @@ export default function StrokeTest() {
   const [minSegLenMm, setMinSegLenMm] = useState(10);
   const [hookMaxRatio, setHookMaxRatio] = useState(0.35);
   const [useMlHint, setUseMlHint] = useState(false);
+  const [bleSupport, setBleSupport] = useState(getBleSupportSnapshot());
 
   const canvasRef = useRef(null);
   const deviceRef = useRef(null);
@@ -412,6 +423,7 @@ export default function StrokeTest() {
     try {
       setError('');
       addLog('開始連接...');
+      await ensureBleRequestAvailable();
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ namePrefix: 'BBC micro:bit' }],
         optionalServices: [UART_SERVICE_UUID]
@@ -448,8 +460,9 @@ export default function StrokeTest() {
       setIsConnected(true);
       addLog('✅ 連接成功！請開始揮動。');
     } catch (err) {
-      setError(err.message);
-      addLog(`❌ 錯誤: ${err.message}`);
+      const friendlyMessage = translateBleError(err);
+      setError(friendlyMessage);
+      addLog(`❌ 錯誤: ${friendlyMessage}`);
     }
   };
 
@@ -557,6 +570,26 @@ export default function StrokeTest() {
   };
 
   useEffect(() => {
+    initBleSupport().catch((err) => {
+      setError(translateBleError(err));
+    });
+
+    const unsubscribe = subscribeBleSupport((snapshot) => {
+      setBleSupport(snapshot);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (source === 'serial' && !bleSupport.supportsSerial) {
+      setSource('ble');
+    }
+  }, [bleSupport.supportsSerial, source]);
+
+  useEffect(() => {
     return () => {
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current);
@@ -585,24 +618,66 @@ export default function StrokeTest() {
       <h1 className="text-3xl font-bold mb-6 text-amber-400">MPU6050 筆劃方向測試器</h1>
 
       <div className="flex flex-col items-center gap-3 mb-4">
+        <div className={`w-full max-w-4xl rounded-2xl border px-4 py-3 text-sm ${
+          bleSupport.status === 'ready'
+            ? 'bg-emerald-950/40 border-emerald-600 text-emerald-200'
+            : bleSupport.status === 'needs-extension'
+              ? 'bg-amber-950/40 border-amber-500 text-amber-100'
+              : bleSupport.status === 'error'
+                ? 'bg-red-950/40 border-red-600 text-red-200'
+                : 'bg-slate-800 border-slate-700 text-slate-300'
+        }`}>
+          <div className="font-semibold mb-1">藍牙環境</div>
+          <div>{getBlePlatformHint(bleSupport)}</div>
+          {bleSupport.isIOSSafari && (
+            <div className="mt-3 space-y-2">
+              <div className="text-xs uppercase tracking-wide opacity-70">iPad Safari 安裝步驟</div>
+              <ol className="list-decimal pl-5 space-y-1 text-sm">
+                {getBleInstallSteps().map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <a
+                href={getBleSetupUrl()}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/15"
+              >
+                打開 WebBLE 安裝頁
+              </a>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-3 text-sm text-slate-300">
           <label className="inline-flex items-center gap-2">
             <input type="radio" name="source" value="ble" checked={source === 'ble'} onChange={() => setSource('ble')} />
             藍牙 UART
           </label>
           <label className="inline-flex items-center gap-2">
-            <input type="radio" name="source" value="serial" checked={source === 'serial'} onChange={() => setSource('serial')} />
+            <input
+              type="radio"
+              name="source"
+              value="serial"
+              checked={source === 'serial'}
+              onChange={() => setSource('serial')}
+              disabled={!bleSupport.supportsSerial}
+            />
             USB 序列埠
           </label>
+          {!bleSupport.supportsSerial && (
+            <span className="text-xs text-amber-300">目前裝置/瀏覽器不支援 Web Serial</span>
+          )}
         </div>
 
         {source === 'ble' ? (
           !isConnected ? (
             <button 
               onClick={connectMicrobit}
+              disabled={bleSupport.status === 'loading'}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold flex items-center gap-2"
             >
-              <Bluetooth /> 連接 Micro:bit
+              <Bluetooth /> {bleSupport.status === 'loading' ? '檢查中...' : '連接 Micro:bit'}
             </button>
           ) : (
             <div className="px-6 py-3 bg-green-600 rounded-xl font-bold flex items-center gap-2">
