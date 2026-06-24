@@ -25,7 +25,6 @@
     "hanzi-writer-data": "2.0.1",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
-    "vite": "^5.1.6",
-    "vite-plugin-pwa": "^0.21.2"
+    "vite": "^5.1.6"
   }
 }

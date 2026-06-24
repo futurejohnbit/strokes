@@ -480,10 +480,40 @@ const loadHanziData = async (char) => {
     }
 
     const baseUrl = import.meta.env.BASE_URL || '/';
-    const response = await fetch(`${baseUrl}hanzi-data/${encodeURIComponent(char)}.json`);
-    if (!response.ok) throw new Error('找不到該漢字數據');
+    const localUrl = `${baseUrl}hanzi-data/${encodeURIComponent(char)}.json`;
+    const cdnUrl = `https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/${encodeURIComponent(char)}.json`;
 
-    const data = await response.json();
+    const fetchJson = async (url, hypothesisId) => {
+        // #region debug-point A:hanzi-fetch-start
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"stuck-ready-screen",runId:"pre",hypothesisId,location:"GeminiApp.jsx:loadHanziData",msg:"[DEBUG] hanzi fetch start",data:{char,url,baseUrl},ts:Date.now()})}).catch(()=>{});
+        // #endregion
+
+        const response = await fetch(url);
+
+        // #region debug-point A:hanzi-fetch-response
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"stuck-ready-screen",runId:"pre",hypothesisId,location:"GeminiApp.jsx:loadHanziData",msg:"[DEBUG] hanzi fetch response",data:{char,requestUrl:response.url,ok:response.ok,status:response.status,contentType:response.headers.get("content-type")},ts:Date.now()})}).catch(()=>{});
+        // #endregion
+
+        if (!response.ok) throw new Error(`hanzi fetch failed: ${response.status}`);
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.toLowerCase().includes('application/json')) {
+            throw new Error(`hanzi invalid content-type: ${contentType}`);
+        }
+
+        return response.json();
+    };
+
+    let data;
+    try {
+        data = await fetchJson(localUrl, 'A');
+    } catch (error) {
+        // #region debug-point A:hanzi-local-fail
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"stuck-ready-screen",runId:"pre",hypothesisId:"A",location:"GeminiApp.jsx:loadHanziData",msg:"[DEBUG] hanzi local failed, fallback to cdn",data:{char,localUrl,error:String(error)},ts:Date.now()})}).catch(()=>{});
+        // #endregion
+        data = await fetchJson(cdnUrl, 'B');
+    }
+
     HANZI_DATA_CACHE.set(char, data);
     return data;
 };
