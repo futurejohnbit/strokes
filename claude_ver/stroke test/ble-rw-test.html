@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro:bit 藍牙讀寫測試 (交互診斷)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; background: #f5f7fa; color: #333; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e1e4e8; }
+        .full-width { grid-column: span 2; }
+        h1 { color: #2c3e50; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        h2 { font-size: 1.2rem; color: #34495e; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        
+        button { padding: 10px 20px; font-size: 15px; cursor: pointer; color: white; border: none; border-radius: 6px; transition: all 0.2s; font-weight: 600; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background: #cbd5e0 !important; cursor: not-allowed; transform: none; }
+        .btn-connect { background: #3182ce; width: 100%; padding: 15px; font-size: 1.1rem; }
+        .btn-send { background: #38a169; }
+        .btn-cmd { background: #4a5568; margin-right: 5px; margin-bottom: 5px; font-size: 0.9rem; padding: 8px 12px; }
+        
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; }
+        .status-disconnected { background: #fed7d7; color: #c53030; }
+        .status-connected { background: #c6f6d5; color: #2f855a; }
+        
+        #log { height: 300px; overflow-y: auto; background: #1a202c; color: #a0aec0; padding: 15px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.5; }
+        .log-time { color: #718096; margin-right: 10px; user-select: none; }
+        .log-tx { color: #68d391; } /* 綠色：發送 */
+        .log-rx { color: #63b3ed; } /* 藍色：接收 */
+        .log-sys { color: #f6e05e; } /* 黃色：系統 */
+        .log-err { color: #fc8181; } /* 紅色：錯誤 */
+
+        input[type="text"] { padding: 10px; border: 2px solid #e2e8f0; border-radius: 6px; width: 70%; font-family: monospace; }
+        
+        .control-group { margin-bottom: 15px; }
+        .control-label { display: block; margin-bottom: 5px; font-weight: bold; color: #4a5568; }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+            .full-width { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🛠️ Micro:bit 藍牙讀寫測試</h1>
+    
+    <div class="card full-width" style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>狀態：</strong>
+                <span id="connectionStatus" class="status-badge status-disconnected">未連接</span>
+                <span id="deviceInfo" style="margin-left: 10px; color: #718096;"></span>
+            </div>
+            <button id="btnConnect" class="btn-connect" style="width: auto;">📡 連接 Micro:bit</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 發送區域 -->
+        <div class="card">
+            <h2>📤 發送數據 (Write)</h2>
+            <div class="control-group">
+                <label class="control-label">快速指令 (模擬握手)</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                    <button class="btn-cmd" onclick="send('ON')">發送 "ON"</button>
+                    <button class="btn-cmd" onclick="send('OFF')">發送 "OFF"</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">模擬硬件按鈕 (如果需要)</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                    <button class="btn-cmd" onclick="send('BTN_DOWN')">發送 "BTN_DOWN"</button>
+                    <button class="btn-cmd" onclick="send('BTN_UP')">發送 "BTN_UP"</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label">自定義發送</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="customInput" placeholder="輸入內容..." onkeydown="if(event.key==='Enter') sendCustom()">
+                    <button class="btn-send" onclick="sendCustom()">發送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 接收區域 -->
+        <div class="card">
+            <h2>📥 接收數據 (Notify)</h2>
+            <div style="margin-bottom: 10px;">
+                <span style="font-size: 0.9rem; color: #718096;">最新收到的數據：</span>
+                <div id="latestValue" style="font-size: 1.5rem; font-weight: bold; color: #2b6cb0; min-height: 1.8rem;">-</div>
+            </div>
+            <div style="font-size: 0.8rem; color: #718096;">
+                接收計數: <span id="rxCount">0</span>
+            </div>
+        </div>
+        
+        <!-- 日誌區域 -->
+        <div class="card full-width">
+            <h2>📜 通信日誌</h2>
+            <div id="log"></div>
+            <button onclick="document.getElementById('log').innerHTML=''" style="margin-top: 10px; background: #718096; padding: 5px 10px; font-size: 0.8rem;">清空日誌</button>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const TX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // 通常是 Notify
+        const RX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // 通常是 Write
+
+        // 狀態
+        let bluetoothDevice = null;
+        let rxCharacteristic = null; // 用於寫入
+        let rxCount = 0;
+
+        // UI 元素
+        const btnConnect = document.getElementById('btnConnect');
+        const statusBadge = document.getElementById('connectionStatus');
+        const deviceInfo = document.getElementById('deviceInfo');
+        const logDiv = document.getElementById('log');
+        const latestValueDiv = document.getElementById('latestValue');
+        const rxCountSpan = document.getElementById('rxCount');
+
+        // 日誌函數
+        function addLog(msg, type = 'sys') {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${type}">${msg}</span>`;
+            logDiv.appendChild(div);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // 連接按鈕事件
+        btnConnect.addEventListener('click', async () => {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+                return;
+            }
+            await connect();
+        });
+
+        async function connect() {
+            try {
+                addLog('正在請求設備...', 'sys');
+                // 1. 請求設備
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'BBC micro:bit' }],
+                    optionalServices: [UART_SERVICE_UUID]
+                });
+
+                // 2. 綁定斷開事件
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                
+                deviceInfo.textContent = `(${bluetoothDevice.name})`;
+                addLog(`已選擇設備: ${bluetoothDevice.name}`, 'sys');
+
+                // 3. 連接 GATT
+                addLog('正在連接 GATT...', 'sys');
+                const server = await bluetoothDevice.gatt.connect();
+                
+                // 4. 獲取服務 (帶超時處理)
+                addLog('正在獲取 UART 服務...', 'sys');
+                const getServicesPromise = server.getPrimaryServices();
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Service_Discovery_Timeout')), 5000)
+                );
+
+                let services;
+                try {
+                    services = await Promise.race([getServicesPromise, timeoutPromise]);
+                } catch (e) {
+                    if (e.message === 'Service_Discovery_Timeout') {
+                        throw new Error('服務發現超時！請在 Windows 藍牙設置中刪除設備後重試。');
+                    }
+                    throw e;
+                }
+
+                const service = services.find(s => s.uuid.toLowerCase() === UART_SERVICE_UUID);
+                if (!service) throw new Error('未找到 UART 服務');
+
+                addLog('✅ 找到 UART 服務', 'sys');
+
+                // 5. 智能遍歷特徵值 (解決 UUID 不匹配問題)
+                addLog('正在掃描所有特徵值...', 'sys');
+                const characteristics = await service.getCharacteristics();
+                
+                if (characteristics.length === 0) {
+                    throw new Error('服務中沒有特徵值');
+                }
+
+                let txChar = null; // 確保在外部聲明
+                characteristics.forEach(c => {
+                    const props = [];
+                    if (c.properties.read) props.push('Read');
+                    if (c.properties.write) props.push('Write');
+                    if (c.properties.writeWithoutResponse) props.push('WriteNoResp');
+                    if (c.properties.notify) props.push('Notify');
+                    if (c.properties.indicate) props.push('Indicate');
+                    
+                    addLog(`發現特徵值: ${c.uuid.slice(4, 8)} (${props.join(', ')})`, 'sys');
+                    
+                    // 自動選擇寫入通道
+                    if ((c.properties.write || c.properties.writeWithoutResponse) && !rxCharacteristic) {
+                        rxCharacteristic = c;
+                        addLog(`✅ 自動綁定寫入通道 (RX): ${c.uuid.slice(4, 8)}`, 'sys');
+                    }
+                    
+                    // 自動選擇通知通道 (優先選擇支持 Notify 的)
+                    // 注意：有些特徵值同時支持 Write 和 Notify，我們需要小心區分
+                    // 通常 TX 是 Notify，RX 是 Write
+                    if (c.properties.notify && !txChar) {
+                        txChar = c;
+                        addLog(`✅ 自動綁定通知通道 (TX): ${c.uuid.slice(4, 8)}`, 'sys');
+                    }
+                });
+
+                if (!txChar) {
+                     // 如果沒有顯式的 Notify，嘗試找 Indicate
+                     const indicateChar = characteristics.find(c => c.properties.indicate);
+                     if (indicateChar) {
+                         txChar = indicateChar;
+                         addLog(`⚠️ 使用 Indicate 通道: ${indicateChar.uuid.slice(4, 8)}`, 'sys');
+                     }
+                }
+
+                if (!rxCharacteristic) {
+                    addLog('❌ 警告: 未找到可寫入的特徵值', 'err');
+                }
+
+                if (txChar) {
+                    addLog('正在啟用通知...', 'sys');
+                    await txChar.startNotifications();
+                    txChar.addEventListener('characteristicvaluechanged', handleNotifications);
+                    addLog('✅ 通知已啟用，準備接收數據', 'sys');
+                } else {
+                    throw new Error('未找到支持 Notify/Indicate 的特徵值 (Micro:bit 藍牙服務可能未正確初始化)');
+                }
+
+                onConnected();
+
+            } catch (error) {
+                console.error(error);
+                let msg = error.message || error.toString();
+                addLog(`連接失敗: ${msg}`, 'err');
+                
+                if (msg.includes('GATT') || msg.includes('NetworkError') || msg.includes('Connection')) {
+                     addLog('💡 常見解決方案：', 'warn');
+                     addLog('1. 轉到 Windows "設置" > "藍牙和其他設備"', 'sys');
+                     addLog('2. 找到 "BBC micro:bit" 並點擊 "刪除設備"', 'sys');
+                     addLog('3. 按一下 Micro:bit 背面的 Reset 鍵', 'sys');
+                     addLog('4. 刷新本頁面重試', 'sys');
+                }
+                
+                statusBadge.className = 'status-badge status-disconnected';
+                statusBadge.textContent = '連接失敗';
+            }
+        }
+
+        function onConnected() {
+            statusBadge.className = 'status-badge status-connected';
+            statusBadge.textContent = '已連接';
+            btnConnect.textContent = '❌ 斷開連接';
+            btnConnect.style.background = '#e53e3e';
+            
+            // 啟用所有按鈕
+            document.querySelectorAll('button').forEach(b => b.disabled = false);
+        }
+
+        function onDisconnected() {
+            statusBadge.className = 'status-badge status-disconnected';
+            statusBadge.textContent = '已斷開';
+            btnConnect.textContent = '📡 連接 Micro:bit';
+            btnConnect.style.background = '#3182ce';
+            deviceInfo.textContent = '';
+            addLog('設備已斷開連接', 'sys');
+            rxCharacteristic = null;
+        }
+
+        function handleNotifications(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const str = decoder.decode(value).trim();
+            
+            // 更新 UI
+            latestValueDiv.textContent = str;
+            latestValueDiv.style.animation = 'none';
+            latestValueDiv.offsetHeight; /* trigger reflow */
+            latestValueDiv.style.animation = 'pulse 0.5s'; // 需要定義 pulse 動畫，這裡簡化
+            
+            rxCount++;
+            rxCountSpan.textContent = rxCount;
+            
+            addLog(`收到: "${str}"`, 'rx');
+        }
+
+        async function send(cmd) {
+            if (!bluetoothDevice || !bluetoothDevice.gatt.connected) {
+                addLog('未連接設備', 'err');
+                return;
+            }
+            if (!rxCharacteristic) {
+                addLog('未找到寫入特徵值', 'err');
+                return;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                // 添加換行符，因為 MakeCode 通常使用換行符作為分隔
+                const data = encoder.encode(cmd + '\n');
+                await rxCharacteristic.writeValue(data);
+                addLog(`發送: "${cmd}"`, 'tx');
+            } catch (error) {
+                addLog(`發送失敗: ${error.message}`, 'err');
+            }
+        }
+
+        function sendCustom() {
+            const input = document.getElementById('customInput');
+            const val = input.value.trim();
+            if (val) {
+                send(val);
+                input.value = ''; // 清空輸入
+            }
+        }
+
+        // 添加心跳/探測功能
+        setInterval(async () => {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected && rxCharacteristic) {
+                // 這是為了保持連接活躍，某些設備如果長時間不通訊會斷開
+                // 但這裡我們不主動發送，以免干擾用戶測試
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

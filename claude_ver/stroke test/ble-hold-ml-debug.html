@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>micro:bit 筆畫 ML（按住偵測）BLE 除錯頁</title>
+  <style>
+    :root {
+      --bg: #070a12;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.10);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.65);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      --ok: #33d6a6;
+      --warn: #ffbf4d;
+      --err: #ff5b78;
+      --blue: #60a5fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(900px 600px at 20% 10%, rgba(96,165,250,0.25) 0%, rgba(7,10,18,0.0) 55%),
+        radial-gradient(900px 700px at 85% 20%, rgba(51,214,166,0.20) 0%, rgba(7,10,18,0.0) 60%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 18px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; display: flex; align-items: center; gap: 10px; }
+    .badge { padding: 6px 10px; border-radius: 999px; font-weight: 900; font-size: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--muted); }
+    .badge.ok { color: rgba(182,255,234,0.95); border-color: rgba(51,214,166,0.35); background: rgba(51,214,166,0.12); }
+    .badge.warn { color: rgba(255,226,178,0.95); border-color: rgba(255,191,77,0.35); background: rgba(255,191,77,0.10); }
+    .badge.err { color: rgba(255,205,214,0.95); border-color: rgba(255,91,120,0.40); background: rgba(255,91,120,0.12); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+    .card { border: 1px solid var(--border); background: var(--card); border-radius: 14px; padding: 14px; box-shadow: 0 16px 55px rgba(0,0,0,0.35); }
+    .card h2 { margin: 0 0 10px; font-size: 13px; color: rgba(255,255,255,0.82); letter-spacing: 0.2px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn.primary { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.35); }
+    .btn.danger { background: rgba(255,91,120,0.14); border-color: rgba(255,91,120,0.40); }
+    .btn:active { transform: translateY(1px) scale(0.99); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .hold {
+      width: 100%;
+      padding: 18px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(96,165,250,0.28);
+      background: linear-gradient(180deg, rgba(96,165,250,0.16), rgba(96,165,250,0.06));
+      color: rgba(235,244,255,0.98);
+      font-weight: 1000;
+      font-size: 15px;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+      user-select: none;
+      touch-action: none;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+    }
+    .hold.active {
+      background: linear-gradient(180deg, rgba(51,214,166,0.25), rgba(51,214,166,0.10));
+      border-color: rgba(51,214,166,0.45);
+    }
+    .hold:active { transform: translateY(1px) scale(0.99); }
+    label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+    .pill { display: inline-flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); background: rgba(0,0,0,0.20); }
+    input[type="checkbox"] { transform: translateY(1px); }
+    select, input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+      color: var(--text);
+      outline: none;
+    }
+    .kv { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 980px) { .kv { grid-template-columns: 1fr 1fr; } }
+    .k { border: 1px solid var(--border); background: rgba(0,0,0,0.18); border-radius: 12px; padding: 10px; }
+    .k .t { font-size: 11px; color: var(--muted); }
+    .k .v { margin-top: 4px; font-size: 16px; font-weight: 1000; font-family: var(--mono); }
+    .log {
+      height: 320px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.40);
+      padding: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log .sys { color: rgba(203,213,225,0.95); }
+    .log .rx { color: rgba(147,197,253,0.95); }
+    .log .ml { color: rgba(134,239,172,0.95); }
+    .log .imu { color: rgba(253,230,138,0.95); }
+    .log .err { color: rgba(251,113,133,0.95); }
+    .hr { height: 1px; background: var(--border); margin: 10px 0; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .mono { font-family: var(--mono); }
+    .table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+    .table th, .table td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+    .table th { background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.78); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>
+        micro:bit 筆畫 ML（按住偵測）BLE 除錯頁
+        <span id="statusBadge" class="badge warn">未連線</span>
+        <span id="deviceName" class="badge" style="display:none"></span>
+      </h1>
+      <div class="row" style="flex: 0 0 auto;">
+        <button id="btnConnect" class="btn primary">連線</button>
+        <button id="btnDisconnect" class="btn danger" disabled>斷線</button>
+        <button id="btnClear" class="btn">清空</button>
+        <button id="btnExport" class="btn">匯出</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>操作</h2>
+        <button id="btnHold" class="hold" disabled>按住開始偵測｜放開停止（需要先連線）</button>
+        <div class="hr"></div>
+        <div class="row" style="align-items: stretch;">
+          <div style="flex: 1 1 320px;">
+            <label>掃描模式</label>
+            <select id="scanMode">
+              <option value="namePrefix">依名稱前綴（BBC micro:bit）</option>
+              <option value="acceptAll">顯示所有裝置（acceptAllDevices）</option>
+            </select>
+          </div>
+          <div style="flex: 1 1 200px;">
+            <label>Service discovery 超時（毫秒）</label>
+            <input id="svcTimeoutMs" type="number" min="1000" step="500" value="5000" />
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="row">
+          <div class="pill">
+            <input id="stripNull" type="checkbox" checked />
+            <span class="small">移除 \\0</span>
+          </div>
+          <div class="pill">
+            <input id="showHex" type="checkbox" />
+            <span class="small">顯示封包 HEX</span>
+          </div>
+          <div class="pill">
+            <input id="stopNotifyWhenUp" type="checkbox" />
+            <span class="small">放開時 stopNotifications</span>
+          </div>
+        </div>
+        <div class="small" style="margin-top: 10px;">
+          這頁的目標是讓你看清楚「micro:bit ML 事件」最後透過 BLE UART 送到網頁的原始內容（每一行/每個封包），以及網頁端如何把它映射成「筆畫名稱」。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>即時指標</h2>
+        <div class="kv">
+          <div class="k"><div class="t">連線狀態</div><div id="mConn" class="v">—</div></div>
+          <div class="k"><div class="t">capture 狀態</div><div id="mCap" class="v">OFF</div></div>
+          <div class="k"><div class="t">封包 / 行數</div><div id="mCounts" class="v">0 / 0</div></div>
+          <div class="k"><div class="t">最近一行（raw）</div><div id="mLatest" class="v" style="font-size: 12px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">—</div></div>
+          <div class="k"><div class="t">最近一筆（解析）</div><div id="mParsed" class="v" style="font-size: 12px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">—</div></div>
+          <div class="k"><div class="t">buffer 尾巴（未完整行）</div><div id="mTail" class="v" style="font-size: 12px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">—</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>筆畫代碼對照（micro:bit → 網頁）</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>micro:bit 發送</th>
+              <th>網頁 normalize 後 token</th>
+              <th>筆畫名稱</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody id="strokeTableBody"></tbody>
+        </table>
+        <div class="small" style="margin-top: 10px;">
+          如果你在 CreateAI 介面看到識別很準，但網頁不準，通常問題會出在：換行分隔、\\0 字元、封包拆分（一次 notification 可能只有半行）、或網頁端在「多筆投票/節流」後才輸出。這頁會把每一個封包與每一行都攤開給你看。
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>Log（只在按住期間收集）</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const UART_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+    const UART_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+    const STROKE_CODE_TO_TOKEN = {
+      '1': 'HENG',
+      '2': 'SHU',
+      '3': 'TI',
+      '4': 'NA',
+      '5': 'DIAN',
+      '6': 'HENGPIE',
+      '7': 'SHUGOU',
+      '8': 'HENGSHUGOU'
+    };
+
+    const TOKEN_TO_ZH = {
+      HENG: '橫',
+      SHU: '豎',
+      TI: '提',
+      NA: '捺',
+      DIAN: '點',
+      HENGPIE: '橫撇',
+      SHUGOU: '豎鉤',
+      HENGSHUGOU: '橫豎鉤'
+    };
+
+    function normalizeStrokeToken(token) {
+      return STROKE_CODE_TO_TOKEN[token] || token;
+    }
+
+    function bytesToHex(bytes) {
+      let out = '';
+      for (let i = 0; i < bytes.length; i++) {
+        out += bytes[i].toString(16).padStart(2, '0');
+        if (i !== bytes.length - 1) out += ' ';
+      }
+      return out;
+    }
+
+    const el = {
+      statusBadge: document.getElementById('statusBadge'),
+      deviceName: document.getElementById('deviceName'),
+      btnConnect: document.getElementById('btnConnect'),
+      btnDisconnect: document.getElementById('btnDisconnect'),
+      btnClear: document.getElementById('btnClear'),
+      btnExport: document.getElementById('btnExport'),
+      btnHold: document.getElementById('btnHold'),
+      scanMode: document.getElementById('scanMode'),
+      svcTimeoutMs: document.getElementById('svcTimeoutMs'),
+      stripNull: document.getElementById('stripNull'),
+      showHex: document.getElementById('showHex'),
+      stopNotifyWhenUp: document.getElementById('stopNotifyWhenUp'),
+      log: document.getElementById('log'),
+      strokeTableBody: document.getElementById('strokeTableBody'),
+      mConn: document.getElementById('mConn'),
+      mCap: document.getElementById('mCap'),
+      mCounts: document.getElementById('mCounts'),
+      mLatest: document.getElementById('mLatest'),
+      mParsed: document.getElementById('mParsed'),
+      mTail: document.getElementById('mTail')
+    };
+
+    let bluetoothDevice = null;
+    let txCharacteristic = null;
+    let rxCharacteristic = null;
+    const decoder = new TextDecoder('utf-8');
+
+    let packetCount = 0;
+    let lineCount = 0;
+    let rawBuffer = '';
+    let latestLine = '';
+    let latestParsed = '';
+
+    let capturing = false;
+    let logLines = [];
+    let lastPacketHex = '';
+
+    function setStatus(kind, text) {
+      el.statusBadge.className = `badge ${kind}`;
+      el.statusBadge.textContent = text;
+    }
+
+    function setConnectedUi(connected) {
+      el.btnConnect.disabled = connected;
+      el.btnDisconnect.disabled = !connected;
+      el.btnHold.disabled = !connected;
+      el.mConn.textContent = connected ? 'CONNECTED' : 'DISCONNECTED';
+    }
+
+    function pushLog(type, msg) {
+      const t = new Date().toLocaleTimeString();
+      logLines.push({ type, line: `[${t}] ${msg}` });
+      if (logLines.length > 1500) logLines = logLines.slice(logLines.length - 1500);
+      renderLog();
+    }
+
+    function renderLog() {
+      const frag = document.createDocumentFragment();
+      for (const item of logLines.slice(-600)) {
+        const div = document.createElement('div');
+        div.className = item.type;
+        div.textContent = item.line;
+        frag.appendChild(div);
+      }
+      el.log.innerHTML = '';
+      el.log.appendChild(frag);
+      el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    function clearAll() {
+      packetCount = 0;
+      lineCount = 0;
+      rawBuffer = '';
+      latestLine = '';
+      latestParsed = '';
+      lastPacketHex = '';
+      logLines = [];
+      renderLog();
+      renderMetrics();
+    }
+
+    function renderMetrics() {
+      el.mCap.textContent = capturing ? 'ON' : 'OFF';
+      el.mCounts.textContent = `${packetCount} / ${lineCount}`;
+      el.mLatest.textContent = latestLine || '—';
+      el.mParsed.textContent = latestParsed || '—';
+      el.mTail.textContent = rawBuffer ? rawBuffer.replace(/\s+/g, ' ').slice(0, 120) : '—';
+    }
+
+    function parseLineForDebug(line) {
+      const raw = line.trim();
+      if (!raw) return null;
+
+      if (raw.startsWith('{') && raw.endsWith('}')) {
+        try {
+          const obj = JSON.parse(raw);
+          if (obj && obj.kind === 'imuAssist') {
+            return { kind: 'imuAssist', raw, obj };
+          }
+        } catch {}
+      }
+
+      const upper = raw.toUpperCase();
+      const normalized = normalizeStrokeToken(upper);
+      if (TOKEN_TO_ZH[normalized]) {
+        const code = Object.keys(STROKE_CODE_TO_TOKEN).find(k => STROKE_CODE_TO_TOKEN[k] === normalized) || null;
+        return { kind: 'stroke', raw, token: normalized, zh: TOKEN_TO_ZH[normalized], code };
+      }
+      return { kind: 'text', raw };
+    }
+
+    function onLine(line) {
+      lineCount += 1;
+      latestLine = line;
+
+      const parsed = parseLineForDebug(line);
+      if (!parsed) return;
+
+      if (!capturing) {
+        latestParsed = parsed.kind === 'stroke'
+          ? `ML=${parsed.zh}（${parsed.token}，code=${parsed.code || '—'}）`
+          : parsed.kind === 'imuAssist'
+            ? `imuAssist forCode=${parsed.obj.forCode || '—'} pieScore=${parsed.obj.pieScore || 0}`
+            : parsed.raw;
+        renderMetrics();
+        return;
+      }
+
+      if (el.showHex.checked && lastPacketHex) {
+        pushLog('sys', `PKT HEX ${lastPacketHex}`);
+        lastPacketHex = '';
+      }
+
+      pushLog('rx', `RX ${parsed.raw}`);
+      if (parsed.kind === 'stroke') {
+        pushLog('ml', `ML 觸發：${parsed.zh}（token=${parsed.token}，code=${parsed.code || '—'}）`);
+        latestParsed = `ML=${parsed.zh}（${parsed.token}，code=${parsed.code || '—'}）`;
+      } else if (parsed.kind === 'imuAssist') {
+        const o = parsed.obj;
+        pushLog('imu', `IMU assist：forCode=${o.forCode || '—'} imuDir=${o.imuDir || '—'} pieScore=${o.pieScore || 0} samples=${o.sampleCount || 0}`);
+        latestParsed = `imuAssist forCode=${o.forCode || '—'} pieScore=${o.pieScore || 0}`;
+      } else {
+        latestParsed = parsed.raw;
+      }
+      renderMetrics();
+    }
+
+    function onNotification(event) {
+      packetCount += 1;
+      const value = event.target.value;
+      const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      lastPacketHex = bytesToHex(bytes);
+
+      let chunk = decoder.decode(bytes);
+      if (el.stripNull.checked) chunk = chunk.replace(/\0/g, '');
+      if (!chunk) {
+        renderMetrics();
+        return;
+      }
+
+      rawBuffer += chunk;
+      const lines = rawBuffer.split('\n');
+      rawBuffer = lines.pop() || '';
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].replace(/\r/g, '').trim();
+        if (!line) continue;
+        onLine(line);
+      }
+      renderMetrics();
+    }
+
+    async function connect() {
+      if (!navigator.bluetooth) {
+        setStatus('err', '不支援');
+        pushLog('err', '此瀏覽器不支援 Web Bluetooth。請用 Chrome / Edge（或 Android Chrome）。');
+        return;
+      }
+
+      try {
+        setStatus('warn', '請求裝置中');
+        const scanMode = el.scanMode.value;
+        const requestOptions = scanMode === 'acceptAll'
+          ? { acceptAllDevices: true, optionalServices: [UART_SERVICE_UUID] }
+          : { filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] };
+
+        bluetoothDevice = await navigator.bluetooth.requestDevice(requestOptions);
+        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        el.deviceName.textContent = bluetoothDevice.name || 'micro:bit';
+        el.deviceName.style.display = 'inline-flex';
+        pushLog('sys', `已選擇裝置：${bluetoothDevice.name || bluetoothDevice.id}`);
+
+        setStatus('warn', '連線中');
+        const server = await bluetoothDevice.gatt.connect();
+        const timeoutMs = Math.max(1000, Number(el.svcTimeoutMs.value) || 5000);
+        const services = await Promise.race([
+          server.getPrimaryServices(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Service_Discovery_Timeout')), timeoutMs))
+        ]);
+
+        const uartService = services.find(s => (s.uuid || '').toLowerCase() === UART_SERVICE_UUID);
+        if (!uartService) throw new Error('未找到 UART Service（請確認 micro:bit 有啟用 UART）');
+
+        let rx = null;
+        let tx = null;
+        try { rx = await uartService.getCharacteristic(UART_RX_UUID); } catch {}
+        try { tx = await uartService.getCharacteristic(UART_TX_UUID); } catch {}
+
+        if (!rx || !tx) {
+          const characteristics = await uartService.getCharacteristics();
+          for (const c of characteristics) {
+            if (!rx && (c.properties.write || c.properties.writeWithoutResponse)) rx = c;
+            if (!tx && (c.properties.notify || c.properties.indicate)) tx = c;
+          }
+        }
+
+        if (!tx) throw new Error('未找到可通知的 TX characteristic（Notify/Indicate）');
+        txCharacteristic = tx;
+        rxCharacteristic = rx;
+
+        await txCharacteristic.startNotifications();
+        txCharacteristic.addEventListener('characteristicvaluechanged', onNotification);
+
+        setStatus('ok', '已連線');
+        setConnectedUi(true);
+        pushLog('sys', `已連線：UART OK；RX=${rxCharacteristic ? '可寫' : '不可寫'}，TX=可通知`);
+        renderMetrics();
+      } catch (e) {
+        const msg = e && e.message ? e.message : String(e);
+        if (msg === 'Service_Discovery_Timeout' || msg.includes('Service_Discovery_Timeout')) {
+          setStatus('err', '服務超時');
+          pushLog('err', '服務發現超時。建議到系統藍牙設定移除該 micro:bit 後重試，並按 micro:bit Reset。');
+        } else {
+          setStatus('err', '連線失敗');
+          pushLog('err', `連線失敗：${msg}`);
+        }
+        setConnectedUi(false);
+      }
+    }
+
+    function onDisconnected() {
+      capturing = false;
+      el.btnHold.classList.remove('active');
+      setStatus('warn', '已斷線');
+      txCharacteristic = null;
+      rxCharacteristic = null;
+      setConnectedUi(false);
+      pushLog('sys', '裝置已斷線。');
+      renderMetrics();
+    }
+
+    function disconnect() {
+      try {
+        if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) {
+          bluetoothDevice.gatt.disconnect();
+        }
+      } catch {}
+      onDisconnected();
+    }
+
+    async function setCapturing(next) {
+      capturing = next;
+      el.btnHold.classList.toggle('active', capturing);
+      el.btnHold.textContent = capturing ? '偵測中…（放開停止）' : '按住開始偵測｜放開停止';
+      renderMetrics();
+
+      if (capturing) {
+        logLines = [];
+        pushLog('sys', 'CAPTURE START');
+        return;
+      }
+
+      pushLog('sys', 'CAPTURE STOP');
+      if (el.stopNotifyWhenUp.checked && txCharacteristic) {
+        try {
+          await txCharacteristic.stopNotifications();
+          pushLog('sys', '已 stopNotifications()');
+        } catch (e) {
+          const msg = e && e.message ? e.message : String(e);
+          pushLog('err', `stopNotifications 失敗：${msg}`);
+        }
+      }
+    }
+
+    function exportLog() {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        device: bluetoothDevice ? { name: bluetoothDevice.name, id: bluetoothDevice.id } : null,
+        metrics: { packetCount, lineCount },
+        latestLine,
+        latestParsed,
+        bufferTail: rawBuffer,
+        log: logLines
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `microbit-ml-hold-debug-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function bindHoldButton() {
+      const start = (e) => {
+        if (e) e.preventDefault();
+        if (!bluetoothDevice || !bluetoothDevice.gatt || !bluetoothDevice.gatt.connected) return;
+        if (!capturing) setCapturing(true);
+      };
+      const stop = (e) => {
+        if (e) e.preventDefault();
+        if (capturing) setCapturing(false);
+      };
+      el.btnHold.addEventListener('pointerdown', start);
+      el.btnHold.addEventListener('pointerup', stop);
+      el.btnHold.addEventListener('pointercancel', stop);
+      el.btnHold.addEventListener('pointerleave', stop);
+    }
+
+    function renderStrokeTable() {
+      const rows = Object.entries(STROKE_CODE_TO_TOKEN).map(([code, token]) => {
+        const zh = TOKEN_TO_ZH[token] || '—';
+        return { code, token, zh };
+      });
+      const frag = document.createDocumentFragment();
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.textContent = r.code;
+        const td2 = document.createElement('td');
+        td2.textContent = r.token;
+        const td3 = document.createElement('td');
+        td3.textContent = r.zh;
+        const td4 = document.createElement('td');
+        td4.textContent = '通常是一行一個代碼（含換行）';
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        tr.appendChild(td3);
+        tr.appendChild(td4);
+        frag.appendChild(tr);
+      }
+      el.strokeTableBody.innerHTML = '';
+      el.strokeTableBody.appendChild(frag);
+    }
+
+    el.btnConnect.addEventListener('click', () => connect());
+    el.btnDisconnect.addEventListener('click', () => disconnect());
+    el.btnClear.addEventListener('click', () => clearAll());
+    el.btnExport.addEventListener('click', () => exportLog());
+
+    renderStrokeTable();
+    bindHoldButton();
+    setConnectedUi(false);
+    renderMetrics();
+    pushLog('sys', '就緒：點「連線」後，按住大按鈕開始收集。');
+  </script>
+</body>
+</html>
+
