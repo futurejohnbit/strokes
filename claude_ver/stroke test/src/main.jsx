@@ -68,6 +68,29 @@ function Root() {
     audioEngineRef.current?.primeAudio?.()
   }, [])
 
+  useEffect(() => {
+    let unlocked = false
+
+    const unlockAudio = () => {
+      if (unlocked) return
+      unlocked = true
+      audioEngineRef.current?.primeAudio?.()
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('touchstart', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+    }
+
+    window.addEventListener('pointerdown', unlockAudio, { passive: true })
+    window.addEventListener('touchstart', unlockAudio, { passive: true })
+    window.addEventListener('keydown', unlockAudio)
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('touchstart', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+    }
+  }, [])
+
   const handleAudioSceneChange = useCallback((scene = 'menu') => {
     audioEngineRef.current?.setMusicScene(scene)
   }, [])

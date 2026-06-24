@@ -45,6 +45,7 @@ export function createThemeAudioEngine() {
   let lastStartAttempt = 0;
   let musicScene = 'menu';
   let fadeFrame = null;
+  let noiseBuffer = null;
 
   const SCENE_VOLUME = {
     menu: 0.42,
@@ -100,6 +101,102 @@ export function createThemeAudioEngine() {
 
   const primeAudio = async () => {
     await getAudioContext();
+  };
+
+  const getNoiseBuffer = (ctx) => {
+    if (noiseBuffer) return noiseBuffer;
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.35, ctx.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let index = 0; index < channel.length; index += 1) {
+      channel[index] = Math.random() * 2 - 1;
+    }
+    noiseBuffer = buffer;
+    return noiseBuffer;
+  };
+
+  const playOscTone = (ctx, startTime, {
+    type = 'sine',
+    frequency = 440,
+    endFrequency = frequency,
+    gainPeak = 0.08,
+    duration = 0.18,
+    attack = 0.015,
+    output = masterGain,
+  }) => {
+    if (!output) return;
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    oscillator.frequency.linearRampToValueAtTime(endFrequency, startTime + Math.min(duration, 0.12));
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(gainPeak, startTime + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    oscillator.connect(gain);
+    gain.connect(output);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration + 0.03);
+  };
+
+  const playClapBurst = (ctx, startTime, peak = 0.12) => {
+    if (!masterGain) return;
+    const source = ctx.createBufferSource();
+    source.buffer = getNoiseBuffer(ctx);
+
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.setValueAtTime(1900, startTime);
+    bandpass.Q.value = 0.9;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(peak, startTime + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.095);
+
+    source.connect(bandpass);
+    bandpass.connect(gain);
+    gain.connect(masterGain);
+    source.start(startTime);
+    source.stop(startTime + 0.11);
+  };
+
+  const playCheerPad = (ctx, startTime) => {
+    if (!masterGain) return;
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.setValueAtTime(420, startTime);
+    highpass.Q.value = 0.8;
+    highpass.connect(masterGain);
+
+    playOscTone(ctx, startTime, {
+      type: 'sawtooth',
+      frequency: 392,
+      endFrequency: 587.33,
+      gainPeak: 0.035,
+      duration: 0.82,
+      attack: 0.03,
+      output: highpass,
+    });
+
+    playOscTone(ctx, startTime + 0.05, {
+      type: 'triangle',
+      frequency: 523.25,
+      endFrequency: 783.99,
+      gainPeak: 0.03,
+      duration: 0.76,
+      attack: 0.03,
+      output: highpass,
+    });
+
+    playOscTone(ctx, startTime + 0.12, {
+      type: 'sine',
+      frequency: 659.25,
+      endFrequency: 987.77,
+      gainPeak: 0.022,
+      duration: 0.68,
+      attack: 0.04,
+      output: highpass,
+    });
   };
 
   const ensureMusicElement = () => {
@@ -193,72 +290,40 @@ export function createThemeAudioEngine() {
     const ctx = await getAudioContext();
     if (!ctx || !masterGain) return;
 
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.connect(gain);
-    gain.connect(masterGain);
-
     const now = ctx.currentTime;
-    const sfxMap = {
-      step: { type: 'sine', start: 520, end: 660, peak: 0.045, attack: 0.02, release: 0.18 },
-      reward: { type: 'triangle', start: 740, end: 980, peak: 0.09, attack: 0.02, release: 0.34 },
-      correct: { type: 'triangle', start: 640, end: 920, peak: 0.11, attack: 0.02, release: 0.32 },
-      wordComplete: { type: 'triangle', start: 720, end: 1120, peak: 0.12, attack: 0.02, release: 0.52 },
-      ceremony: { type: 'sine', start: 720, end: 1040, peak: 0.1, attack: 0.03, release: 0.42 },
-    };
-    const config = sfxMap[kind] || sfxMap.step;
-
-    oscillator.type = config.type;
-    oscillator.frequency.setValueAtTime(config.start, now);
-    oscillator.frequency.linearRampToValueAtTime(config.end, now + 0.12);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(config.peak, now + config.attack);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + config.release);
-    oscillator.start(now);
-    oscillator.stop(now + config.release + 0.02);
-
-    if (kind === 'correct' || kind === 'wordComplete' || kind === 'ceremony') {
-      const chime = ctx.createOscillator();
-      const chimeGain = ctx.createGain();
-      chime.type = 'sine';
-      chime.frequency.setValueAtTime(kind === 'ceremony' ? 1040 : kind === 'correct' ? 980 : 960, now + 0.08);
-      chime.frequency.linearRampToValueAtTime(kind === 'ceremony' ? 1320 : kind === 'correct' ? 1260 : 1180, now + 0.22);
-      chimeGain.gain.setValueAtTime(0.0001, now);
-      chimeGain.gain.linearRampToValueAtTime(kind === 'ceremony' ? 0.06 : kind === 'correct' ? 0.05 : 0.04, now + 0.1);
-      chimeGain.gain.exponentialRampToValueAtTime(0.0001, now + (kind === 'ceremony' ? 0.48 : kind === 'correct' ? 0.42 : 0.38));
-      chime.connect(chimeGain);
-      chimeGain.connect(masterGain);
-      chime.start(now + 0.08);
-      chime.stop(now + (kind === 'ceremony' ? 0.5 : kind === 'correct' ? 0.44 : 0.4));
+    if (kind === 'correct') {
+      // Do Re Mi: 完成一筆時用清楚的三音階上行
+      playOscTone(ctx, now, { type: 'triangle', frequency: 523.25, endFrequency: 523.25, gainPeak: 0.085, duration: 0.12 });
+      playOscTone(ctx, now + 0.09, { type: 'triangle', frequency: 587.33, endFrequency: 587.33, gainPeak: 0.08, duration: 0.12 });
+      playOscTone(ctx, now + 0.18, { type: 'triangle', frequency: 659.25, endFrequency: 659.25, gainPeak: 0.09, duration: 0.18 });
+      return;
     }
 
     if (kind === 'wordComplete') {
-      const flourishA = ctx.createOscillator();
-      const flourishAGain = ctx.createGain();
-      flourishA.type = 'triangle';
-      flourishA.frequency.setValueAtTime(980, now + 0.02);
-      flourishA.frequency.linearRampToValueAtTime(1320, now + 0.18);
-      flourishAGain.gain.setValueAtTime(0.0001, now);
-      flourishAGain.gain.linearRampToValueAtTime(0.05, now + 0.06);
-      flourishAGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.46);
-      flourishA.connect(flourishAGain);
-      flourishAGain.connect(masterGain);
-      flourishA.start(now + 0.02);
-      flourishA.stop(now + 0.48);
-
-      const flourishB = ctx.createOscillator();
-      const flourishBGain = ctx.createGain();
-      flourishB.type = 'sine';
-      flourishB.frequency.setValueAtTime(1174, now + 0.12);
-      flourishB.frequency.linearRampToValueAtTime(1568, now + 0.32);
-      flourishBGain.gain.setValueAtTime(0.0001, now + 0.08);
-      flourishBGain.gain.linearRampToValueAtTime(0.04, now + 0.18);
-      flourishBGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
-      flourishB.connect(flourishBGain);
-      flourishBGain.connect(masterGain);
-      flourishB.start(now + 0.12);
-      flourishB.stop(now + 0.64);
+      // 更歡快的印象：上行琶音加亮音收尾
+      playOscTone(ctx, now, { type: 'triangle', frequency: 523.25, endFrequency: 659.25, gainPeak: 0.09, duration: 0.16 });
+      playOscTone(ctx, now + 0.1, { type: 'triangle', frequency: 659.25, endFrequency: 783.99, gainPeak: 0.085, duration: 0.18 });
+      playOscTone(ctx, now + 0.2, { type: 'triangle', frequency: 783.99, endFrequency: 1046.5, gainPeak: 0.09, duration: 0.22 });
+      playOscTone(ctx, now + 0.28, { type: 'sine', frequency: 1046.5, endFrequency: 1318.51, gainPeak: 0.05, duration: 0.38, attack: 0.02 });
+      return;
     }
+
+    if (kind === 'ceremony') {
+      // 完成一關：鼓掌節奏 + 歡呼感 pad
+      [0, 0.09, 0.18, 0.31, 0.42].forEach((offset, index) => {
+        playClapBurst(ctx, now + offset, index >= 3 ? 0.13 : 0.11);
+      });
+      playCheerPad(ctx, now + 0.02);
+      return;
+    }
+
+    if (kind === 'reward') {
+      playOscTone(ctx, now, { type: 'triangle', frequency: 740, endFrequency: 880, gainPeak: 0.08, duration: 0.16 });
+      playOscTone(ctx, now + 0.08, { type: 'sine', frequency: 880, endFrequency: 987.77, gainPeak: 0.045, duration: 0.24 });
+      return;
+    }
+
+    playOscTone(ctx, now, { type: 'sine', frequency: 520, endFrequency: 660, gainPeak: 0.045, duration: 0.18 });
   };
 
   const destroy = () => {

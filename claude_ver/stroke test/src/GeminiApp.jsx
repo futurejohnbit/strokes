@@ -322,12 +322,12 @@ const PROFESSION_LEVELS = [
                   action_cue: '點：打火；撇：快炒；捺：加柴！'
               },
               {
-                  char: '炎',
-                  pinyin: 'yán',
-                  cantonese: 'jim4',
-                  tool: '雙爐火',
-                  story: '火上加火，非常炎熱！',
-                  action_cue: '上火小一點，下火大一點！'
+                  char: '燈',
+                  pinyin: 'dēng',
+                  cantonese: 'dang1',
+                  tool: '小油燈',
+                  story: '點亮燈火，照著鍋邊慢慢炒！',
+                  action_cue: '左邊先點火，右邊丁字要站穩！'
               },
               {
                   char: '炒',
@@ -389,12 +389,21 @@ const classifyStroke = (medians) => {
     const points = medians.map(p => ({x: p[0], y: p[1]}));
     const start = points[0];
     const end = points[points.length - 1];
+    const probeOffset = Math.min(2, points.length - 1);
+    const firstProbe = points[probeOffset];
+    const lastProbe = points[Math.max(0, points.length - 1 - probeOffset)];
     
     const screenDx = end.x - start.x;
     const screenDy = -(end.y - start.y); // y 軸反轉
+    const startDx = firstProbe.x - start.x;
+    const startDy = -(firstProbe.y - start.y);
+    const endDx = end.x - lastProbe.x;
+    const endDy = -(end.y - lastProbe.y);
     
     const angle = Math.atan2(screenDy, screenDx) * 180 / Math.PI; // -180 to 180
     const dist = Math.sqrt(screenDx*screenDx + screenDy*screenDy);
+    const startAngle = Math.atan2(startDy, startDx || 0.001) * 180 / Math.PI;
+    const endAngle = Math.atan2(endDy, endDx || 0.001) * 180 / Math.PI;
     
     // 計算路徑總長
     let pathLen = 0;
@@ -407,6 +416,13 @@ const classifyStroke = (medians) => {
     
     const ratio = pathLen / (dist + 0.1); // 避免除以0
     const isBent = ratio > 1.2; // 彎曲閾值
+    const startIsHorizontal = Math.abs(startAngle) < 30 && startDx > 20;
+    const endIsVerticalDown = Math.abs(endAngle - 90) < 35 && endDy > 20;
+    const endIsLeftDown = endAngle > 105 && endAngle < 175 && endDy > 20 && endDx < -20;
+    const leftDriftRatio = Math.abs(screenDx) / (Math.abs(screenDy) + 0.1);
+    const isLongLeftFalling = screenDx < -120 && screenDy > 120 && leftDriftRatio > 0.22;
+    const isHengZheLike = isBent && startIsHorizontal && endIsVerticalDown && dist > 80;
+    const isHengPieLike = isBent && startIsHorizontal && endIsLeftDown && dist > 60;
     
     // 檢測鉤 (Hook)
     // 檢查最後一段的走向與整體走向的差異，或者最後一小段的反向
@@ -432,6 +448,17 @@ const classifyStroke = (medians) => {
         }
     }
 
+    // 先識別複合筆劃，避免橫折被整體夾角誤判成橫。
+    if (isHengZheLike) {
+        if (hasHook) return 'HENGSHUGOU';
+        return 'HENGZHE';
+    }
+
+    // 橫撇必須真的是「先橫後撇」，避免短撇僅因略彎就被誤判。
+    if (isHengPieLike) {
+        return 'HENGPIE';
+    }
+
     // 1. 橫 (HENG)
     if (Math.abs(angle) < 30) {
         return 'HENG';
@@ -439,13 +466,13 @@ const classifyStroke = (medians) => {
     
     // 2. 豎 (SHU) / 豎鉤 (SHUGOU)
     if (Math.abs(angle - 90) < 30) { // 向下
+        if (isLongLeftFalling) return 'PIE';
         if (hasHook) return 'SHUGOU';
         return 'SHU';
     }
     
     // 3. 撇 (PIE) / 橫撇 (HENGPIE) - 左下 (135度)
     if (Math.abs(angle - 135) < 30) {
-        if (isBent) return 'HENGPIE'; // 先橫後撇，路徑長
         return 'PIE'; // 單撇
     }
     
@@ -473,6 +500,17 @@ const classifyStroke = (medians) => {
     if (Math.abs(angle + 45) < 45) return 'TI';
     
     return 'UNKNOWN';
+};
+
+const FIRE_COMPONENT_STROKE_OVERRIDES = ['DIAN', 'PIE', 'PIE'];
+
+const applyStrokeTypeOverrides = (professionId, char, strokeIndex, strokeType) => {
+    // 火字部件在組合字中統一按「點、撇、撇」處理，避免被幾何分類誤判。
+    if (professionId === 'fire' && char !== '火' && strokeIndex < FIRE_COMPONENT_STROKE_OVERRIDES.length) {
+        return FIRE_COMPONENT_STROKE_OVERRIDES[strokeIndex];
+    }
+
+    return strokeType;
 };
 
 const loadHanziData = async (char) => {
@@ -2075,7 +2113,8 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
            const medians = data.medians[index];
            
            // 使用新的筆劃分類器
-           const strokeType = classifyStroke(medians) || 'UNKNOWN';
+           const detectedStrokeType = classifyStroke(medians) || 'UNKNOWN';
+           const strokeType = applyStrokeTypeOverrides(profession.id, char, index, detectedStrokeType);
            
            // 根據 strokeType 決定 direction (與 STROKE_MAP 對應)
            let direction = 'unknown';
