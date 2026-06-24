@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "installCommand": "cd \"claude_ver/stroke test\" && npm install",
+  "buildCommand": "cd \"claude_ver/stroke test\" && npm run build",
+  "outputDirectory": "claude_ver/stroke test/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
