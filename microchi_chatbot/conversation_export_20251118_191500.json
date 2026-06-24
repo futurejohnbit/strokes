@@ -1,0 +1,86 @@
+{
+  "metadata": {
+    "topic": "中文學習聊天機器人開發與部署",
+    "created_at": "2025-11-18T19:08:00Z",
+    "last_updated": "2025-11-18T19:15:00Z",
+    "environment": {
+      "os": "windows",
+      "project_root": "C:\\Expoprojects\\microtesting\\chi_chatbot"
+    }
+  },
+  "messages": [
+    {
+      "id": 1,
+      "timestamp": "2025-11-18T19:08:00Z",
+      "role": "user",
+      "content": "開發一個具備資料搜集功能的中文學習聊天機器人，需實現以下具體功能：1. 網路爬蟲模組（指定3網站），自動化爬取與內容過濾。2. 核心查詢功能（繁簡、詞義、發音：注音+拼音）。3. 學生介面（對話式、上下文記憶、收藏夾）。4. 技術要求（Python+Flask/Django，前端Vue/React，MongoDB，擴展性）。5. 測試與驗證（準確率、壓力測試、回饋）。交付含源碼、技術文件與手冊與部署指南；支援至少100人同時在線，平均響應≤2秒。"
+    },
+    {
+      "id": 2,
+      "timestamp": "2025-11-18T19:10:30Z",
+      "role": "assistant",
+      "content": "已完成後端 Flask 與 Vue 前端搭建；整合三個權威來源的爬取與過濾；支援繁簡轉換與拼音/注音；MongoDB 儲存歷史與收藏（無URI則降級記憶體）；提供單元測試與 Locust 壓力測試腳本；文件：technical.md、user_manual.md、deployment.md。啟動於 http://127.0.0.1:5000/，測試通過。"
+    },
+    {
+      "id": 3,
+      "timestamp": "2025-11-18T19:12:30Z",
+      "role": "user",
+      "content": "將位於當前目錄下的任務相關文件完整搬移至目標路徑 \"C:\\Expoprojects\\microtesting\\chi_chatbot\"，並確保更新路徑、環境變數與驗證搬移後功能。"
+    },
+    {
+      "id": 4,
+      "timestamp": "2025-11-18T19:13:30Z",
+      "role": "assistant",
+      "content": "已搬移 backend、docs、tests、requirements.txt、locustfile.py 至 chi_chatbot；新增 DATA_DIR 以寫入 runtime\\logs 與 runtime\\tmp；更新部署文件路徑；在新位置成功啟動並通過測試。"
+    },
+    {
+      "id": 5,
+      "timestamp": "2025-11-18T19:14:30Z",
+      "role": "user",
+      "content": "將當前對話完整匯出為 JSON 檔案並提供下載或顯示。"
+    },
+    {
+      "id": 6,
+      "timestamp": "2025-11-18T19:15:00Z",
+      "role": "assistant",
+      "content": "建立 conversation_export_20251118_191500.json，包含 metadata、messages、summary 與後續行動項目。"
+    }
+  ],
+  "summary": {
+    "confirmed_requirements": [
+      "三站權威來源爬取（MOE辭典、EDB字詞表、標準字體筆順）並過濾核驗",
+      "繁/簡輸入支援；詞義與發音（注音+拼音）查詢",
+      "對話式介面、上下文記憶、收藏夾功能",
+      "後端 Python+Flask、前端 Vue、MongoDB 儲存，擴展性目標100人在線且平均≤2秒",
+      "測試與驗證：單元測試、壓力測試、使用者回饋機制"
+    ],
+    "progress": {
+      "backend": "Flask API 完成（/api/query、/api/history、/api/favorites）",
+      "scrapers": "MOE/EDB/筆順三站爬取與合併信心分已實作",
+      "nlp": "OpenCC繁簡轉換與 PyPinyin 拼音；注音轉換降級後備",
+      "storage": "MongoDB 儲存（無URI時記憶體後備）",
+      "frontend": "Vue 對話介面、模式切換、歷史與收藏管理",
+      "tests": "pytest 通過；Locust 壓測腳本已提供",
+      "docs": "技術文件/手冊/部署指南均完成",
+      "relocation": "已搬移至 chi_chatbot 並更新路徑與 DATA_DIR"
+    },
+    "technical_decisions": [
+      "以 MOE 釋義為主、EDB 一致時提高信心分，confidence≥0.6 視為核可",
+      "環境變數 `DATA_DIR` 管理日誌與臨時檔，避免硬編碼絕對路徑",
+      "無 `MONGO_URI` 時使用記憶體後備，確保功能可用",
+      "部署建議使用 Gunicorn+Nginx 並可加入熱門詞快取"
+    ],
+    "pending_issues": [
+      "提升多音字處理與注音聲調標示精度",
+      "來源抓取失敗的重試與快取策略優化",
+      "生產部署硬化（Nginx、TLS、觀測與告警）",
+      "管理後台（查詢熱度、錯誤率、回饋追蹤）"
+    ],
+    "next_actions": [
+      "加入熱門詞 TTL 快取與 LRU 記憶體快取",
+      "完善注音轉換映射與多音字表",
+      "布建 Gunicorn+Nginx，設定壓縮與連線限流",
+      "新增使用者回饋收集與分析介面"
+    ]
+  }
+}

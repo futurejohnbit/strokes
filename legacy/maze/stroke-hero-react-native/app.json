@@ -1,0 +1,9 @@
+{
+  "name": "StrokeChampsRN",
+  "displayName": "行行出狀元",
+  "version": "1.0.0",
+  "description": "用micro:bit學習漢字筆劃的教育遊戲",
+  "main": "index.js",
+  "author": "行行出狀元開發團隊",
+  "license": "MIT"
+}

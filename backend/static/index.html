@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>中文學習聊天機器人</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>中文學習聊天機器人</h1>
+        <div class="controls"></div>
+      </header>
+      <main>
+        <section class="chat">
+          <div class="messages">
+            <div v-for="(m, idx) in messages" :key="idx" class="message" :class="m.role">
+              <div class="content">
+                <div v-if="m.role==='user'">{{ m.text }}</div>
+                <div v-else>
+                  <template v-if="m.data">
+                    <div class="result">
+                      <div><strong>查詢：</strong>{{ m.data.query }}（{{ m.data.traditional }}）</div>
+                      <div class="block">
+                        <div><strong>詞義：</strong>{{ m.data.definition || '未找到權威釋義' }}</div>
+                        <div v-if="m.data.pos"><strong>詞性：</strong>{{ m.data.pos }}</div>
+                        <div><strong>信心：</strong>{{ (m.data.confidence||0).toFixed(2) }}｜{{ m.data.approved?'已核可':'待核可' }}</div>
+                      </div>
+                      <div class="block">
+                        <div><strong>漢語拼音：</strong>{{ m.data.pinyin && m.data.pinyin.join(' ') }} <span v-if="m.data.authoritative">（權威）</span></div>
+                        <div><strong>注音符號：</strong>{{ m.data.zhuyin && m.data.zhuyin.join(' ') }} <span v-if="m.data.authoritative">（權威）</span></div>
+                      </div>
+                      <div class="sources">
+                        <a v-if="m.data.sources && m.data.sources.moe && m.data.sources.moe.source_url" :href="m.data.sources.moe.source_url" target="_blank">重編國語辭典</a>
+                        <a v-if="m.data.sources && m.data.sources.moe && m.data.sources.moe.search_page_url" :href="m.data.sources.moe.search_page_url" target="_blank">MOE 搜索頁</a>
+                        <a v-if="m.data.sources && m.data.sources.moe && m.data.sources.moe.detail_url" :href="m.data.sources.moe.detail_url" target="_blank">MOE 詞條頁</a>
+                        <a v-if="m.data.sources && m.data.sources.edb && m.data.sources.edb.source_url" :href="m.data.sources.edb.source_url" target="_blank">香港學習字詞表</a>
+                        <a v-if="m.data.sources && m.data.sources.stroke && m.data.sources.stroke.source_url" :href="m.data.sources.stroke.source_url" target="_blank">標準字體筆順</a>
+                      </div>
+                      <div class="agg" v-if="m.data.site_results">
+                        <h4>各站搜尋結果</h4>
+                        <div class="site" v-if="m.data.site_results.moe && m.data.site_results.moe.length">
+                          <strong>重編國語辭典：</strong>
+                          <ul>
+                            <li v-for="(it, i) in m.data.site_results.moe.slice(0,3)" :key="'moe-'+i">
+                              <a :href="it.link" target="_blank">{{ it.title }}</a>
+                            </li>
+                          </ul>
+                          <div v-if="m.data.sources && m.data.sources.moe && m.data.sources.moe.detail_items && m.data.sources.moe.detail_items.length">
+                            <div v-for="(di, j) in m.data.sources.moe.detail_items" :key="'moe-detail-'+j" class="detail">
+                              <div><strong>詞條：</strong><a :href="di.link" target="_blank">{{ di.title }}</a></div>
+                              <div v-if="di.definition"><strong>釋義：</strong>{{ di.definition.slice(0,140) }}...</div>
+                              <div v-if="di.zhuyin_list"><strong>注音：</strong>{{ di.zhuyin_list.join(' ') }}</div>
+                              <div v-if="di.pinyin_list"><strong>漢語拼音：</strong>{{ di.pinyin_list.join(' ') }}</div>
+                              <div v-if="di.sections">
+                                <div v-for="(items, lab) in di.sections" :key="'moe-sec-'+lab">
+                                  <div><strong>{{ lab }}</strong></div>
+                                  <ol>
+                                    <li v-for="(t, k) in items.slice(0,5)" :key="'moe-sec-item-'+j+'-'+k"><span>{{ t.gloss }}</span><span v-if="t.examples && t.examples.length">（例：{{ t.examples.slice(0,2).join('；') }}）</span></li>
+                                  </ol>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="site" v-if="m.data.site_results.edb && m.data.site_results.edb.length">
+                          <strong>香港學習字詞表：</strong>
+                          <ul>
+                            <li v-for="(it, i) in m.data.site_results.edb.slice(0,3)" :key="'edb-'+i">
+                              <a :href="it.link" target="_blank">{{ it.title }}</a>
+                            </li>
+                          </ul>
+                        </div>
+                        <div class="site" v-if="m.data.site_results.stroke && m.data.site_results.stroke.length">
+                          <strong>標準字體筆順：</strong>
+                          <ul>
+                            <li v-for="(it, i) in m.data.site_results.stroke.slice(0,3)" :key="'stroke-'+i">
+                              <a :href="it.link" target="_blank">{{ it.title }}</a>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div v-if="m.data.sources && m.data.sources.stroke && m.data.sources.stroke.stroke_image" class="stroke">
+                        <img :src="m.data.sources.stroke.stroke_image" alt="筆順" />
+                      </div>
+                      <button class="fav" @click="addFavorite(m)">加入收藏</button>
+                    </div>
+                  </template>
+                  <template v-else>{{ m.text }}</template>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="input">
+            <input v-model="query" placeholder="輸入要查詢的詞語..." @keyup.enter="send" />
+            <button @click="send">查詢</button>
+          </div>
+        </section>
+        <aside class="side">
+          <h3>查詢歷史</h3>
+          <ul>
+            <li v-for="(h, i) in history" :key="i">{{ h.q }}</li>
+          </ul>
+          <h3>收藏夾</h3>
+          <ul>
+            <li v-for="(f, i) in favorites" :key="i">
+              <span>{{ f.title }}</span>
+              <button @click="removeFavorite(f)">移除</button>
+            </li>
+          </ul>
+        </aside>
+      </main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+  </html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行行出狀元 - 筆劃迷宮冒險</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #2c3e50;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .tile-grid {
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        .game-canvas {
+            image-rendering: pixelated;
+        }
+
+        .sprite {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .floating {
+            animation: float 2s ease-in-out infinite;
+        }
+
+        /* 泡泡堂風格的裝飾物 */
+        .decoration {
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        /* 迷宮路徑效果 */
+        .path-cell {
+            transition: background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const GAME_STATE = {
+            MENU: 'MENU',
+            PLAYING: 'PLAYING',
+            WON: 'WON',
+            LOST: 'LOST',
+        };
+
+        const GRID_SIZE = 16; // 16x16 迷宮
+        const CELL_DISPLAY_SIZE = 32; // 每個格子 32px
+
+        const App = () => {
+            const [gameState, setGameState] = useState(GAME_STATE.MENU);
+            const [char, setChar] = useState('大');
+            const [maze, setMaze] = useState([]); // 0: 障礙, 1: 路徑, 2: 已走過
+            const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
+            const [monsterPos, setMonsterPos] = useState({ x: 0, y: 0 });
+            const [monsterPath, setMonsterPath] = useState([]); // 怪物追趕的路徑
+            const [playerTrail, setPlayerTrail] = useState([]); // 玩家走過的路徑，怪物會沿著這個走
+            const [feedback, setFeedback] = useState('歡迎來到筆劃迷宮！');
+            const [score, setScore] = useState(0);
+
+            // 生成迷宮算法：將漢字轉換為網格
+            const generateMazeFromChar = (targetChar, customFont = null) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = GRID_SIZE;
+                canvas.height = GRID_SIZE;
+
+                // 設置背景為黑，文字為白
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
+                
+                // 繪製文字
+                const fontSize = GRID_SIZE * 0.9;
+                ctx.font = `bold ${fontSize}px "Noto Sans TC", sans-serif`;
+                if (customFont) {
+                    ctx.font = `bold ${fontSize}px "${customFont}"`;
+                }
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(targetChar, GRID_SIZE / 2, GRID_SIZE / 2);
+
+                const imageData = ctx.getImageData(0, 0, GRID_SIZE, GRID_SIZE).data;
+                const newMaze = [];
+                let startPos = null;
+
+                for (let y = 0; y < GRID_SIZE; y++) {
+                    const row = [];
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        const idx = (y * GRID_SIZE + x) * 4;
+                        const brightness = imageData[idx]; // 只看紅色通道即可
+                        const isPath = brightness > 128 ? 1 : 0;
+                        row.push(isPath);
+                        
+                        // 找第一個路徑點作為起點
+                        if (isPath && !startPos) {
+                            startPos = { x, y };
+                        }
+                    }
+                    newMaze.push(row);
+                }
+
+                return { newMaze, startPos };
+            };
+
+            const startGame = () => {
+                const { newMaze, startPos } = generateMazeFromChar(char);
+                setMaze(newMaze);
+                if (startPos) {
+                    setPlayerPos(startPos);
+                    setMonsterPos({ x: startPos.x - 1, y: startPos.y });
+                    setPlayerTrail([startPos]);
+                }
+                setGameState(GAME_STATE.PLAYING);
+                setScore(0);
+                setFeedback('按正確方向揮動 Micro:bit 以移動！');
+            };
+
+            // 處理移動邏輯 (模擬筆劃識別)
+            const handleMove = (direction) => {
+                if (gameState !== GAME_STATE.PLAYING) return;
+
+                let nextX = playerPos.x;
+                let nextY = playerPos.y;
+
+                if (direction === 'right') nextX++;
+                if (direction === 'left') nextX--;
+                if (direction === 'down') nextY++;
+                if (direction === 'up') nextY--;
+
+                // 檢查邊界和是否為路徑
+                if (nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE && maze[nextY][nextX] === 1) {
+                    const newPos = { x: nextX, y: nextY };
+                    setPlayerPos(newPos);
+                    setPlayerTrail(prev => [...prev, newPos]);
+                    setScore(s => s + 10);
+                    setFeedback('完美前進！');
+                    
+                    // 檢查是否到達終點（簡單判斷：走過一定比例的路徑）
+                    const totalPath = maze.flat().filter(c => c === 1).length;
+                    if (playerTrail.length > totalPath * 0.8) {
+                        // 這裡可以加更複雜的判斷
+                    }
+                } else {
+                    setFeedback('哎呀！那裡沒有路。');
+                }
+            };
+
+            // 怪物追趕邏輯
+            useEffect(() => {
+                if (gameState !== GAME_STATE.PLAYING) return;
+
+                const timer = setInterval(() => {
+                    setPlayerTrail(currentTrail => {
+                        if (currentTrail.length > 0) {
+                            const nextMonsterPos = currentTrail[0];
+                            setMonsterPos(nextMonsterPos);
+                            
+                            // 檢查碰撞
+                            if (nextMonsterPos.x === playerPos.x && nextMonsterPos.y === playerPos.y) {
+                                setGameState(GAME_STATE.LOST);
+                            }
+                            
+                            return currentTrail.slice(1);
+                        }
+                        return currentTrail;
+                    });
+                }, 800); // 怪物移動速度
+
+                return () => clearInterval(timer);
+            }, [gameState, playerPos]);
+
+            // 鍵盤監聽
+            useEffect(() => {
+                const handleKey = (e) => {
+                    if (e.key === 'ArrowRight') handleMove('right');
+                    if (e.key === 'ArrowLeft') handleMove('left');
+                    if (e.key === 'ArrowDown') handleMove('down');
+                    if (e.key === 'ArrowUp') handleMove('up');
+                };
+                window.addEventListener('keydown', handleKey);
+                return () => window.removeEventListener('keydown', handleKey);
+            }, [playerPos, gameState, maze]);
+
+            // TTF 文件上傳處理
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const fontName = 'CustomFont';
+                        const newStyle = document.createElement('style');
+                        newStyle.appendChild(document.createTextNode(`
+                            @font-face {
+                                font-family: '${fontName}';
+                                src: url(${event.target.result});
+                            }
+                        `));
+                        document.head.appendChild(newStyle);
+                        setFeedback('字體加載成功！正在更新迷宮...');
+                        setTimeout(() => {
+                            const { newMaze, startPos } = generateMazeFromChar(char, fontName);
+                            setMaze(newMaze);
+                            if (startPos) {
+                                setPlayerPos(startPos);
+                                setMonsterPos({ x: startPos.x - 1, y: startPos.y });
+                                setPlayerTrail([startPos]);
+                            }
+                        }, 500);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                    {/* 遊戲標題與狀態 */}
+                    <div className="mb-4 text-center">
+                        <h1 className="text-4xl font-black text-amber-400 drop-shadow-lg mb-2">行行出狀元</h1>
+                        <div className="flex gap-4 justify-center">
+                            <span className="bg-slate-700 px-3 py-1 rounded-full text-sm">分數: {score}</span>
+                            <span className="bg-slate-700 px-3 py-1 rounded-full text-sm">目標字: {char}</span>
+                        </div>
+                    </div>
+
+                    {/* 遊戲主區域 */}
+                    <div className="relative bg-[#f0d0a0] p-4 rounded-xl shadow-2xl border-8 border-[#8b4513] overflow-hidden">
+                        {/* 裝飾性網格背景 */}
+                        <div className="tile-grid absolute inset-0 opacity-20"></div>
+
+                        {/* 迷宮渲染 */}
+                        <div 
+                            className="grid gap-0 relative z-10"
+                            style={{ 
+                                gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_DISPLAY_SIZE}px)`,
+                                width: GRID_SIZE * CELL_DISPLAY_SIZE,
+                                height: GRID_SIZE * CELL_DISPLAY_SIZE
+                            }}
+                        >
+                            {maze.map((row, y) => row.map((cell, x) => {
+                                const isPlayer = playerPos.x === x && playerPos.y === y;
+                                const isMonster = monsterPos.x === x && monsterPos.y === y;
+                                
+                                return (
+                                    <div 
+                                        key={`${x}-${y}`}
+                                        className={`relative w-full h-full border-[0.5px] border-black/5 flex items-center justify-center
+                                            ${cell === 1 ? 'bg-[#fef3c7] path-cell' : 'bg-[#10b981] shadow-inner'}
+                                        `}
+                                    >
+                                        {/* 非路徑區域顯示裝飾物 */}
+                                        {cell === 0 && (x + y) % 7 === 0 && <span className="text-xl decoration">🌲</span>}
+                                        {cell === 0 && (x * y) % 11 === 0 && <span className="text-xl decoration">🏠</span>}
+                                        {cell === 0 && (x + y) % 13 === 0 && <span className="text-xl decoration">🧱</span>}
+
+                                        {/* 角色 */}
+                                        {isPlayer && (
+                                            <div className="absolute z-20 sprite text-3xl floating">👦</div>
+                                        )}
+                                        
+                                        {/* 怪物 */}
+                                        {isMonster && (
+                                            <div className="absolute z-20 sprite text-3xl">👾</div>
+                                        )}
+                                    </div>
+                                );
+                            }))}
+                        </div>
+
+                        {/* 遊戲結束覆蓋層 */}
+                        {gameState !== GAME_STATE.PLAYING && (
+                            <div className="absolute inset-0 z-30 bg-black/60 flex flex-col items-center justify-center backdrop-blur-sm">
+                                {gameState === GAME_STATE.MENU && (
+                                    <div className="text-center p-8 bg-slate-800 rounded-2xl border-4 border-amber-400">
+                                        <div className="text-6xl mb-4">🏆</div>
+                                        <h2 className="text-2xl font-bold mb-4">準備好挑戰了嗎？</h2>
+                                        <div className="flex flex-col gap-4">
+                                            <input 
+                                                type="text" 
+                                                maxLength="1" 
+                                                className="bg-slate-700 border-2 border-amber-400 rounded px-4 py-2 text-center text-2xl font-bold"
+                                                value={char}
+                                                onChange={(e) => setChar(e.target.value)}
+                                                placeholder="輸入漢字"
+                                            />
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs text-gray-400">可上傳自定義 TTF 字體：</label>
+                                                <input 
+                                                    type="file" 
+                                                    accept=".ttf,.otf" 
+                                                    onChange={handleFileUpload}
+                                                    className="text-xs block w-full text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={startGame}
+                                                className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-black py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95"
+                                            >
+                                                進入迷宮
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {gameState === GAME_STATE.LOST && (
+                                    <div className="text-center animate-bounce">
+                                        <h2 className="text-5xl font-black text-red-500 mb-4">被抓住了！</h2>
+                                        <button 
+                                            onClick={() => setGameState(GAME_STATE.MENU)}
+                                            className="bg-white text-black font-bold py-2 px-6 rounded-full"
+                                        >
+                                            重試
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 底部提示欄 */}
+                    <div className="mt-6 w-full max-w-md bg-slate-800/80 backdrop-blur p-4 rounded-xl border border-white/10 text-center">
+                        <p className="text-amber-300 font-bold italic">"{feedback}"</p>
+                        <div className="mt-2 text-xs text-gray-400">
+                            提示：使用方向鍵移動 | 綠色區域為障礙 | 黃色路徑構成漢字「{char}」
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
