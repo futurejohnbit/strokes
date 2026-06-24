@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import GeminiApp from './GeminiApp.jsx'
-import StrokeTest from './StrokeTest.jsx'
 import { initBleSupport } from './utils/bleSupport'
 import {
   createThemeAudioEngine,
@@ -12,11 +11,13 @@ import {
 import './index.css'
 
 const AUDIO_STORAGE_KEYS = getAudioStorageKeys()
+const ENABLE_DEBUG_ROUTES = import.meta.env.DEV
+const StrokeTest = ENABLE_DEBUG_ROUTES ? React.lazy(() => import('./StrokeTest.jsx')) : null
 
 function normalizeRoute(pathname) {
   if (!pathname || pathname === '/') return '/'
   if (pathname.startsWith('/intro') || pathname.startsWith('/home-v2') || pathname.startsWith('/preview/home-v2')) return '/'
-  if (pathname.startsWith('/debug')) return '/debug'
+  if (ENABLE_DEBUG_ROUTES && pathname.startsWith('/debug')) return '/debug'
   return '/'
 }
 
@@ -24,7 +25,7 @@ function Root() {
   const params = useMemo(() => new URLSearchParams(window.location.search || ''), [])
   const [route, setRoute] = useState(() => {
     const current = normalizeRoute(window.location.pathname || '/')
-    return params.get('debug') === '1' ? '/debug' : current
+    return ENABLE_DEBUG_ROUTES && params.get('debug') === '1' ? '/debug' : current
   })
   const [musicEnabled, setMusicEnabled] = useState(() =>
     readStoredAudioPreference(AUDIO_STORAGE_KEYS.music, false)
@@ -82,7 +83,11 @@ function Root() {
 
   return (
     <>
-      {route === '/debug' ? <StrokeTest /> : null}
+      {ENABLE_DEBUG_ROUTES && route === '/debug' && StrokeTest ? (
+        <Suspense fallback={null}>
+          <StrokeTest />
+        </Suspense>
+      ) : null}
       {route === '/' ? (
         <GeminiApp
           onPulseSfx={playUiSfx}

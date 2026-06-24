@@ -232,6 +232,7 @@ const STROKE_SESSION_WIN_GAP = 0.85;
 
 const LEVEL_PROGRESS_STORAGE_KEY = 'radicalLevelProgress';
 const HANZI_DATA_CACHE = new Map();
+const ENABLE_DEBUG_UI = import.meta.env.DEV;
 
 // 允許的筆劃名稱 (用於篩選字)
 const ALLOWED_STROKES = ['HENG', 'SHU', 'NA', 'DIAN', 'TI', 'HENGPIE', 'SHUGOU', 'HENGSHUGOU', 'HENGZHE', 'PIE'];
@@ -483,17 +484,8 @@ const loadHanziData = async (char) => {
     const localUrl = `${baseUrl}hanzi-data/${encodeURIComponent(char)}.json`;
     const cdnUrl = `https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/${encodeURIComponent(char)}.json`;
 
-    const fetchJson = async (url, hypothesisId) => {
-        // #region debug-point A:hanzi-fetch-start
-        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"stuck-ready-screen",runId:"pre",hypothesisId,location:"GeminiApp.jsx:loadHanziData",msg:"[DEBUG] hanzi fetch start",data:{char,url,baseUrl},ts:Date.now()})}).catch(()=>{});
-        // #endregion
-
+    const fetchJson = async (url) => {
         const response = await fetch(url);
-
-        // #region debug-point A:hanzi-fetch-response
-        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"stuck-ready-screen",runId:"pre",hypothesisId,location:"GeminiApp.jsx:loadHanziData",msg:"[DEBUG] hanzi fetch response",data:{char,requestUrl:response.url,ok:response.ok,status:response.status,contentType:response.headers.get("content-type")},ts:Date.now()})}).catch(()=>{});
-        // #endregion
-
         if (!response.ok) throw new Error(`hanzi fetch failed: ${response.status}`);
 
         const contentType = response.headers.get('content-type') || '';
@@ -506,12 +498,10 @@ const loadHanziData = async (char) => {
 
     let data;
     try {
-        data = await fetchJson(localUrl, 'A');
+        data = await fetchJson(localUrl);
     } catch (error) {
-        // #region debug-point A:hanzi-local-fail
-        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"stuck-ready-screen",runId:"pre",hypothesisId:"A",location:"GeminiApp.jsx:loadHanziData",msg:"[DEBUG] hanzi local failed, fallback to cdn",data:{char,localUrl,error:String(error)},ts:Date.now()})}).catch(()=>{});
-        // #endregion
-        data = await fetchJson(cdnUrl, 'B');
+        console.warn(`Local hanzi data unavailable for ${char}, fallback to CDN.`, error);
+        data = await fetchJson(cdnUrl);
     }
 
     HANZI_DATA_CACHE.set(char, data);
@@ -687,7 +677,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
   // 調試日誌狀態
   const [debugLogs, setDebugLogs] = useState([]);
-  const [showDebug, setShowDebug] = useState(true); // 默認開啟調試模式
+  const [showDebug, setShowDebug] = useState(false);
   const [bleSupport, setBleSupport] = useState(getBleSupportSnapshot());
   const [connectionStep, setConnectionStep] = useState('');
 
@@ -2186,6 +2176,16 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       }
   };
 
+  const getToolBadgeTheme = (profId) => {
+      switch(profId) {
+          case 'wood': return 'bg-amber-200 border-amber-500 text-amber-900';
+          case 'grain': return 'bg-green-200 border-green-500 text-green-900';
+          case 'fire': return 'bg-rose-200 border-rose-500 text-rose-900';
+          case 'speech': return 'bg-indigo-200 border-indigo-500 text-indigo-900';
+          default: return 'bg-slate-200 border-slate-400 text-slate-800';
+      }
+  };
+
   const getProfessionFxTheme = (profId) => {
       switch(profId) {
           case 'wood':
@@ -2374,6 +2374,8 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                             gameLevelData && gameLevelData.profession.id === 'speech' ? <Icons.Brush size={24} /> :
                            <Icons.Hammer size={24} />;
 
+           const toolBadgeTheme = getToolBadgeTheme(gameLevelData?.profession?.id);
+
            return (
             <div 
               className={`absolute ${isAnimating ? '' : 'transition-all duration-500'}`}
@@ -2383,7 +2385,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                 transform: 'translate(-50%, -50%)',
               }}
             >
-               <div className={`text-white p-2 rounded-full shadow-lg border-2 border-white ${profTheme.highlight.replace('text-', 'bg-')}`}>
+               <div className={`p-2 rounded-full shadow-lg border-2 ${toolBadgeTheme}`}>
                   {profIcon}
                </div>
             </div>
@@ -2445,12 +2447,14 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                 <span className="font-bold">{batteryLevel}%</span>
              </div>
           )}
-          <button
-            onClick={() => window.location.assign('/debug')}
-            className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
-          >
-            調試
-          </button>
+          {ENABLE_DEBUG_UI ? (
+            <button
+              onClick={() => window.location.assign('/debug')}
+              className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
+            >
+              調試
+            </button>
+          ) : null}
           <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
             <Bluetooth size={14} className={isConnected ? "text-green-600" : "text-slate-400"} /> 
             <span>{isConnected ? '已連接' : '未連接'}</span>
@@ -3074,7 +3078,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       </div>
       </main>
 
-      {/* 調試模式切換 */}
       <div className="fixed bottom-4 left-4 z-50">
          <button 
            onClick={() => setShowDebug(!showDebug)}
