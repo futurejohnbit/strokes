@@ -211,6 +211,12 @@ const MICROBIT_BUTTON_TOKEN_MAP = {
   P14_CLICK: 'ENTER',
   PIN14_ENTER: 'ENTER',
   P14_ENTER: 'ENTER',
+  PIN14_NEXT: 'NEXT',
+  P14_NEXT: 'NEXT',
+  PIN14_DBL: 'NEXT',
+  P14_DBL: 'NEXT',
+  PIN14_DOUBLE: 'NEXT',
+  P14_DOUBLE: 'NEXT',
 };
 
 const normalizeMicrobitButtonToken = (value) => MICROBIT_BUTTON_TOKEN_MAP[value] || null;
@@ -676,6 +682,9 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   const [gameState, setGameState] = useState(GAME_STATE.MENU);
   const [level, setLevel] = useState(0); // 這裡的 level 代表 "PROFESSION_LEVELS" 的索引
   const [levelSelectCursor, setLevelSelectCursor] = useState(0);
+  const [menuButtonCursor, setMenuButtonCursor] = useState(0);
+  const [introButtonCursor, setIntroButtonCursor] = useState(0);
+  const [achievementButtonCursor, setAchievementButtonCursor] = useState(1);
   const [currentCharIndex, setCurrentCharIndex] = useState(0); // 該職業中的第幾個字
   const [currentStrokeIndex, setCurrentStrokeIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60); // 倒計時 (秒)
@@ -933,6 +942,9 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   const timeLeftRef = useRef(timeLeft);
   const currentCharIndexRef = useRef(currentCharIndex);
   const levelSelectCursorRef = useRef(levelSelectCursor);
+  const menuButtonCursorRef = useRef(menuButtonCursor);
+  const introButtonCursorRef = useRef(introButtonCursor);
+  const achievementButtonCursorRef = useRef(achievementButtonCursor);
   const isConnectedRef = useRef(isConnected);
   
   // 新增：防抖與過渡狀態 Ref
@@ -1004,10 +1016,27 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     timeLeftRef.current = timeLeft;
     currentCharIndexRef.current = currentCharIndex;
     levelSelectCursorRef.current = levelSelectCursor;
+    menuButtonCursorRef.current = menuButtonCursor;
+    introButtonCursorRef.current = introButtonCursor;
+    achievementButtonCursorRef.current = achievementButtonCursor;
     gameLevelDataRef.current = gameLevelData;
     testCharacterRef.current = testCharacter;
     isConnectedRef.current = isConnected;
-  }, [gameState, level, currentStrokeIndex, completedStrokes, timeLeft, currentCharIndex, levelSelectCursor, gameLevelData, testCharacter, isConnected]);
+  }, [gameState, level, currentStrokeIndex, completedStrokes, timeLeft, currentCharIndex, levelSelectCursor, menuButtonCursor, introButtonCursor, achievementButtonCursor, gameLevelData, testCharacter, isConnected]);
+
+  useEffect(() => {
+    if (gameState === GAME_STATE.MENU) {
+      setMenuButtonCursor(0);
+      return;
+    }
+    if (gameState === GAME_STATE.LEVEL_INTRO) {
+      setIntroButtonCursor(0);
+      return;
+    }
+    if (gameState === GAME_STATE.ACHIEVEMENT) {
+      setAchievementButtonCursor(1);
+    }
+  }, [gameState, isConnected]);
 
   const analyzeStrokeDirection = (medians) => {
       if (!medians || medians.length < 2) return 'unknown';
@@ -1493,6 +1522,123 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     });
   }
 
+  function cycleMenuSelection() {
+    setMenuButtonCursor((prev) => {
+      const next = (prev + 1) % 2;
+      const label = isConnectedRef.current
+        ? (next === 0 ? '選擇部首關卡' : '斷開連接')
+        : (next === 0 ? '連結 Micro:bit' : '跳過連接');
+      addLog(`🎯 預選按鈕: ${label}`);
+      return next;
+    });
+  }
+
+  function cycleIntroSelection() {
+    setIntroButtonCursor((prev) => {
+      const next = (prev + 1) % 2;
+      addLog(`🎯 預選按鈕: ${next === 0 ? '開始試煉' : '返回選關'}`);
+      return next;
+    });
+  }
+
+  function cycleAchievementSelection() {
+    setAchievementButtonCursor((prev) => {
+      const next = (prev + 1) % 2;
+      addLog(`🎯 預選按鈕: ${next === 0 ? '主選單' : '返回選關'}`);
+      return next;
+    });
+  }
+
+  function advanceMicrobitSelection() {
+    const currentGameState = gameStateRef.current;
+
+    if (currentGameState === GAME_STATE.MENU) {
+      cycleMenuSelection();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_SELECT) {
+      playPositiveSfx('step');
+      cycleLevelSelection(1);
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_INTRO) {
+      playPositiveSfx('step');
+      cycleIntroSelection();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.ACHIEVEMENT) {
+      playPositiveSfx('step');
+      cycleAchievementSelection();
+      return;
+    }
+
+    addLog('ℹ️ 目前畫面沒有可切換的預選按鈕');
+  }
+
+  function confirmMicrobitSelection() {
+    const currentGameState = gameStateRef.current;
+
+    if (currentGameState === GAME_STATE.MENU) {
+      if (isConnectedRef.current) {
+        if (menuButtonCursorRef.current === 0) {
+          playPositiveSfx('reward');
+          startGame();
+        } else {
+          onDisconnected();
+        }
+        return;
+      }
+
+      if (menuButtonCursorRef.current === 0) {
+        connectMicrobit();
+      } else {
+        startGame();
+      }
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_SELECT) {
+      playPositiveSfx('reward');
+      selectLevel(levelSelectCursorRef.current);
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_INTRO) {
+      playPositiveSfx('reward');
+      if (introButtonCursorRef.current === 0) {
+        startCurrentLevel();
+      } else {
+        goToLevelSelect();
+      }
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.CHAR_PREVIEW) {
+      playPositiveSfx('reward');
+      skipPronunciationPreview();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LOST) {
+      playPositiveSfx('reward');
+      startGame();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.ACHIEVEMENT) {
+      playPositiveSfx('reward');
+      if (achievementButtonCursorRef.current === 0) {
+        clearPronunciationPreview();
+        setGameState(GAME_STATE.MENU);
+      } else {
+        handleNextLevel();
+      }
+    }
+  }
+
   function handleMicrobitButton(buttonKind) {
     const currentGameState = gameStateRef.current;
 
@@ -1500,32 +1646,13 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       return;
     }
 
-    if (!isConnectedRef.current && currentGameState === GAME_STATE.MENU) {
-      setFeedback('請先連接 Micro:bit，再用按鈕進入關卡。');
-      setFeedbackType('info');
+    if (buttonKind === 'NEXT') {
+      advanceMicrobitSelection();
       return;
     }
 
     if (buttonKind === 'ENTER') {
-      if (currentGameState === GAME_STATE.MENU) {
-        playPositiveSfx('reward');
-        startGame();
-        return;
-      }
-      if (currentGameState === GAME_STATE.LEVEL_SELECT) {
-        playPositiveSfx('reward');
-        selectLevel(levelSelectCursorRef.current);
-        return;
-      }
-      if (currentGameState === GAME_STATE.LEVEL_INTRO) {
-        playPositiveSfx('reward');
-        startCurrentLevel();
-        return;
-      }
-      if (currentGameState === GAME_STATE.CHAR_PREVIEW) {
-        playPositiveSfx('reward');
-        skipPronunciationPreview();
-      }
+      confirmMicrobitSelection();
       return;
     }
 
@@ -2590,7 +2717,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                         <button 
                           onClick={connectMicrobit}
                           disabled={bleSupport.status === 'loading'}
-                          className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
+                          className={`w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800 ${
+                            gameState === GAME_STATE.MENU && !isConnected && menuButtonCursor === 0
+                              ? 'ring-4 ring-offset-4 ring-blue-300 scale-[1.02]'
+                              : ''
+                          }`}
                         >
                           <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                           <Bluetooth size={32} className="animate-pulse" /> 
@@ -2633,7 +2764,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
                         <button 
                            onClick={startGame}
-                           className="w-full py-4 bg-white hover:bg-amber-50 text-slate-500 hover:text-amber-600 font-bold rounded-2xl border-2 border-slate-200 hover:border-amber-200 transition-all hover:shadow-md flex items-center justify-center gap-2 group"
+                           className={`w-full py-4 bg-white hover:bg-amber-50 text-slate-500 hover:text-amber-600 font-bold rounded-2xl border-2 border-slate-200 hover:border-amber-200 transition-all hover:shadow-md flex items-center justify-center gap-2 group ${
+                             gameState === GAME_STATE.MENU && !isConnected && menuButtonCursor === 1
+                               ? 'ring-4 ring-offset-4 ring-amber-300 border-amber-300 shadow-lg text-amber-700'
+                               : ''
+                           }`}
                         >
                            <span className="group-hover:scale-110 transition-transform">🚀</span>
                            <span className="text-lg">跳過連接，前往選關</span>
@@ -2681,7 +2816,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
               <div className="flex flex-col gap-3">
                 <button 
                   onClick={startGame}
-                  className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-2xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-200 border-b-4 border-orange-700"
+                  className={`w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-2xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-200 border-b-4 border-orange-700 ${
+                    gameState === GAME_STATE.MENU && isConnected && menuButtonCursor === 0
+                      ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]'
+                      : ''
+                  }`}
                 >
                   <Play size={28} fill="currentColor" /> 
                   選擇部首關卡
@@ -2690,7 +2829,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
               
               <button 
                  onClick={onDisconnected}
-                 className="mt-6 text-slate-400 hover:text-red-400 text-sm flex items-center justify-center gap-2 transition-colors"
+                 className={`mt-6 text-sm flex items-center justify-center gap-2 transition-colors ${
+                   gameState === GAME_STATE.MENU && isConnected && menuButtonCursor === 1
+                     ? 'text-red-500 font-bold underline underline-offset-4'
+                     : 'text-slate-400 hover:text-red-400'
+                 }`}
               >
                  斷開連接
               </button>
@@ -2714,7 +2857,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                 </div>
                 {isConnected && (
                   <div className="px-4 py-2 rounded-2xl bg-blue-50 border border-blue-200 text-blue-800 font-bold">
-                    A 切換關卡 · B 進入 · A+B 返回
+                    P14 雙擊切換預選 · 單擊確認
                   </div>
                 )}
                 <button
@@ -2968,7 +3111,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
           <button
             type="button"
             onClick={skipPronunciationPreview}
-            className={`w-[min(55vw,55vh)] min-w-[260px] aspect-square rounded-[2.5rem] shadow-2xl text-center border-4 flex items-center justify-center ${getProfessionTheme(gameLevelData?.profession?.id).bg} ${getProfessionTheme(gameLevelData?.profession?.id).border}`}
+            className={`w-[min(55vw,55vh)] min-w-[260px] aspect-square rounded-[2.5rem] shadow-2xl text-center border-4 flex items-center justify-center ring-4 ring-offset-4 ring-amber-200 ${getProfessionTheme(gameLevelData?.profession?.id).bg} ${getProfessionTheme(gameLevelData?.profession?.id).border}`}
           >
             <span className="block font-kai text-slate-800 drop-shadow-sm leading-none text-[min(38vw,38vh)]">
               {isLoadingLevel || !gameLevelData ? '...' : gameLevelData.char}
@@ -3006,6 +3149,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
         profession={PROFESSION_LEVELS[level]}
         ceremony={levelCeremonyPayload}
         nextLabel="返回選關"
+        selectedAction={achievementButtonCursor === 0 ? 'menu' : 'next'}
       />
 
       {showCelebration && (
@@ -3084,13 +3228,17 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
             <div className="mt-auto flex flex-col sm:flex-row gap-3">
               <button 
                   onClick={startCurrentLevel}
-                  className={`flex-1 py-4 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-xl bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900`}
+                  className={`flex-1 py-4 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-xl bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900 ${
+                    introButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-slate-200 scale-[1.02]' : ''
+                  }`}
               >
                   <Play size={24} fill="currentColor" /> 開始試煉
               </button>
               <button
                   onClick={goToLevelSelect}
-                  className="flex-1 py-4 bg-white/80 hover:bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-white/80 transition-colors"
+                  className={`flex-1 py-4 bg-white/80 hover:bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-white/80 transition-colors ${
+                    introButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-white scale-[1.02] border-white shadow-lg' : ''
+                  }`}
               >
                   返回選關
               </button>

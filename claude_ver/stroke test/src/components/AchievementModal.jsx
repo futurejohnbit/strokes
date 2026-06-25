@@ -64,6 +64,7 @@ const AchievementModal = ({
   profession,
   ceremony,
   nextLabel = '繼續下一關',
+  selectedAction = 'next',
 }) => {
   if (!visible) return null;
 
@@ -150,14 +151,18 @@ const AchievementModal = ({
         <div className="px-5 py-4 md:px-7 md:py-5 bg-slate-50 border-t border-slate-100 flex flex-col gap-3 sm:flex-row sm:gap-4">
           <button 
             onClick={onMenu}
-            className="flex-1 py-3.5 px-4 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-colors flex items-center justify-center gap-2"
+            className={`flex-1 py-3.5 px-4 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-2xl border-2 border-slate-200 transition-colors flex items-center justify-center gap-2 ${
+              selectedAction === 'menu' ? 'ring-4 ring-offset-4 ring-slate-300 shadow-lg' : ''
+            }`}
           >
             <Home size={20} /> 主選單
           </button>
           
           <button 
             onClick={onNext}
-            className={`flex-1 py-3.5 px-4 text-white font-bold rounded-2xl shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 border-b-4 ${tone.button}`}
+            className={`flex-1 py-3.5 px-4 text-white font-bold rounded-2xl shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 border-b-4 ${tone.button} ${
+              selectedAction === 'next' ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]' : ''
+            }`}
           >
             <Play size={20} fill="currentColor" /> {nextLabel}
           </button>
