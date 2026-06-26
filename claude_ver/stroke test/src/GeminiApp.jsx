@@ -70,9 +70,9 @@ const ENABLE_DEBUG_UI = import.meta.env.DEV;
     ),
     Brush: ({ size = 24, className = "" }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-        <path d="M10 2L8 6L16 10L18 6L10 2Z" fill="#94A3B8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M8 6L4 14C4 14 3 16 3 18C3 20.2 4.8 22 7 22C9.2 22 11 20.2 11 18C11 16 10 14 10 14L16 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M14 2L18 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M10 2L8 6L16 10L18 6L10 2Z" fill="#d1d5db" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M8 6L4 14C4 14 3 16 3 18C3 20.2 4.8 22 7 22C9.2 22 11 20.2 11 18C11 16 10 14 10 14L16 10" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M14 2L18 6" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     Sword: ({ size = 24, className = "" }) => (
@@ -411,33 +411,33 @@ const WON_CROWN_PARTS = [
     id: 'wood',
     source: '木部工坊',
     name: '木框骨架',
-    icon: <Icons.Hammer size={22} className="text-amber-600" />,
-    shellClassName: 'border-amber-200 bg-amber-50 text-amber-900',
-    iconClassName: 'bg-amber-100 text-amber-700',
+    icon: <Hammer size={22} className="text-slate-900" />,
+    shellClassName: 'border-slate-200 bg-white text-slate-900',
+    iconClassName: 'bg-slate-100 text-slate-900',
   },
   {
     id: 'grain',
     source: '禾部田園',
     name: '稻穗穗飾',
-    icon: <Icons.Seed size={22} className="text-green-600" />,
-    shellClassName: 'border-green-200 bg-green-50 text-green-900',
-    iconClassName: 'bg-green-100 text-green-700',
+    icon: <Sprout size={22} className="text-slate-900" />,
+    shellClassName: 'border-slate-200 bg-white text-slate-900',
+    iconClassName: 'bg-slate-100 text-slate-900',
   },
   {
     id: 'fire',
     source: '火部廚房',
     name: '星光配件',
-    icon: <Icons.Fire size={22} className="text-red-500" />,
-    shellClassName: 'border-red-200 bg-red-50 text-red-900',
-    iconClassName: 'bg-red-100 text-red-700',
+    icon: <Flame size={22} className="text-slate-900" />,
+    shellClassName: 'border-slate-200 bg-white text-slate-900',
+    iconClassName: 'bg-slate-100 text-slate-900',
   },
   {
     id: 'speech',
     source: '言部書院',
     name: '題字冠牌',
-    icon: <Scroll size={22} className="text-indigo-600" />,
-    shellClassName: 'border-indigo-200 bg-indigo-50 text-indigo-900',
-    iconClassName: 'bg-indigo-100 text-indigo-700',
+    icon: <Scroll size={22} className="text-slate-900" />,
+    shellClassName: 'border-slate-200 bg-white text-slate-900',
+    iconClassName: 'bg-slate-100 text-slate-900',
   },
 ];
 
@@ -2415,7 +2415,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           case 'wood': return { bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-800', highlight: 'text-amber-600', icon: '🔨', shadow: 'shadow-amber-500/20', brushFill: '#d97706', brushStroke: '#92400e' };
           case 'grain': return { bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-800', highlight: 'text-green-600', icon: '🌾', shadow: 'shadow-green-500/20', brushFill: '#16a34a', brushStroke: '#166534' };
           case 'fire': return { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-800', highlight: 'text-red-600', icon: '🔥', shadow: 'shadow-red-500/20', brushFill: '#ef4444', brushStroke: '#b91c1c' };
-          case 'speech': return { bg: 'bg-indigo-100', border: 'border-indigo-400', text: 'text-indigo-800', highlight: 'text-indigo-600', icon: '🖌️', shadow: 'shadow-indigo-500/20', brushFill: '#4f46e5', brushStroke: '#3730a3' };
+          case 'speech': return { bg: 'bg-indigo-100', border: 'border-indigo-400', text: 'text-indigo-800', highlight: 'text-indigo-600', icon: '🖌️', shadow: 'shadow-indigo-500/20', brushFill: '#111827', brushStroke: '#000000' };
           default: return { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-700', highlight: 'text-slate-600', icon: '❓', shadow: 'shadow-slate-500/20', brushFill: '#475569', brushStroke: '#334155' };
       }
   };
@@ -2602,11 +2602,21 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
            const pos = getPosition(point[0], point[1]);
            
            // 根據職業顯示不同圖標
-           const profIcon = gameLevelData && gameLevelData.profession.id === 'wood' ? <Icons.Hammer size={24} /> :
-                            gameLevelData && gameLevelData.profession.id === 'grain' ? <Icons.Seed size={24} /> :
-                            gameLevelData && gameLevelData.profession.id === 'fire' ? <Icons.Fire size={24} /> :
-                            gameLevelData && gameLevelData.profession.id === 'speech' ? <Icons.Brush size={24} /> :
-                           <Icons.Hammer size={24} />;
+           const profIcon = gameLevelData && gameLevelData.profession.id === 'wood' ? <Hammer size={22} className="text-white" /> :
+                            gameLevelData && gameLevelData.profession.id === 'grain' ? <Sprout size={22} className="text-white" /> :
+                            gameLevelData && gameLevelData.profession.id === 'fire' ? <Flame size={22} className="text-white" /> :
+                            gameLevelData && gameLevelData.profession.id === 'speech' ? <PenTool size={22} className="text-white" /> :
+                           <PenTool size={22} className="text-white" />;
+
+           const toolBadgeClass = gameLevelData && gameLevelData.profession.id === 'wood'
+             ? 'bg-amber-600'
+             : gameLevelData && gameLevelData.profession.id === 'grain'
+               ? 'bg-green-600'
+               : gameLevelData && gameLevelData.profession.id === 'fire'
+                 ? 'bg-red-500'
+                 : gameLevelData && gameLevelData.profession.id === 'speech'
+                   ? 'bg-indigo-600'
+                   : 'bg-slate-700';
 
            return (
             <div 
@@ -2617,7 +2627,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                 transform: 'translate(-50%, -50%)',
               }}
             >
-               <div className={`text-white p-2 rounded-full shadow-lg border-2 border-white ${profTheme.highlight.replace('text-', 'bg-')}`}>
+               <div className={`text-white p-2 rounded-full shadow-lg border-2 border-white ${toolBadgeClass}`}>
                   {profIcon}
                </div>
             </div>
