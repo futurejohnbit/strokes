@@ -2387,7 +2387,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       <div className={`relative w-full max-w-[80vh] aspect-square bg-[#fdfbf7] rounded-xl shadow-2xl border-4 overflow-hidden mx-auto mt-2 font-kai cursor-crosshair ${profTheme.border} ${profTheme.shadow}`}>
         {/* 1. 背景大字 (Shadow Character) - 淺灰色 */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-             <span className="text-[380px] font-kai text-slate-200 opacity-60" style={{ fontFamily: '"Free HK Kai", "DFKai-SB", "KaiTi", "標楷體", "TW-Kai", "BiauKai", "Kaiti SC", "STKaiti", serif' }}>
+             <span className="text-[380px] font-kai text-slate-200 opacity-60" style={{ fontFamily: '"KaiFallback", "DFKai-SB", "KaiTi", "標楷體", "TW-Kai", "BiauKai", "Kaiti SC", "STKaiti", serif' }}>
                  {currentChar.char}
              </span>
         </div>

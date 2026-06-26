@@ -4,7 +4,7 @@
 
 :root {
   --font-body: 'FangSong', 'FangSong_GB2312', '仿宋', 'STFangsong', serif;
-  --font-title: 'DFKai-SB', 'KaiTi', '標楷體', 'TW-Kai', 'BiauKai', serif;
+  --font-title: 'KaiFallback', 'DFKai-SB', 'KaiTi', '標楷體', 'TW-Kai', 'BiauKai', serif;
 }
 
 html,
@@ -39,8 +39,16 @@ body {
 }
 
 @font-face {
-  font-family: 'Free HK Kai';
-  src: local('KaiTi'), local('BiauKai'), local('DFKai-SB'), local('TW-Kai');
+  font-family: 'KaiFallback';
+  src:
+    url('/fonts/Iansui-Regular.ttf') format('truetype'),
+    local('DFKai-SB'),
+    local('KaiTi'),
+    local('BiauKai'),
+    local('TW-Kai');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
 }
 
 button,
