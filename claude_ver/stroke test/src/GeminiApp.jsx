@@ -195,6 +195,44 @@ const STROKE_TOKEN_TO_DIRECTION = {
 };
 
 const normalizeStrokeToken = (value) => STROKE_CODE_TO_TOKEN[value] || value;
+const LEGACY_STROKE_TYPE_TO_TOKEN = {
+  horizontal: 'HENG',
+  vertical: 'SHU',
+  throw: 'PIE',
+  press: 'NA',
+  rise: 'TI',
+  hook: 'SHUGOU',
+};
+
+const normalizeTargetStrokeToken = (value) => {
+  if (!value) return null;
+  const upperValue = String(value).trim().toUpperCase();
+  if (STROKE_TOKEN_TO_DIRECTION[upperValue]) {
+    return upperValue;
+  }
+  return LEGACY_STROKE_TYPE_TO_TOKEN[String(value).trim().toLowerCase()] || null;
+};
+
+const parseCandidateStrokeCodes = (value) => {
+  if (!value.startsWith('CAND:')) return null;
+
+  const payload = value.slice(5).trim();
+  if (!payload) {
+    return { codes: [], tokens: [] };
+  }
+
+  const codes = payload
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const tokens = codes
+    .map((code) => normalizeStrokeToken(code.toUpperCase()))
+    .filter((token) => STROKE_TOKEN_TO_DIRECTION[token]);
+
+  return { codes, tokens };
+};
+
 const MICROBIT_BUTTON_TOKEN_MAP = {
   BTN_A: 'A',
   BUTTON_A: 'A',
@@ -367,6 +405,41 @@ const PROFESSION_LEVELS = [
           ]
       }
   ];
+
+const WON_CROWN_PARTS = [
+  {
+    id: 'wood',
+    source: '木部工坊',
+    name: '木框骨架',
+    icon: <Icons.Hammer size={22} className="text-amber-600" />,
+    shellClassName: 'border-amber-200 bg-amber-50 text-amber-900',
+    iconClassName: 'bg-amber-100 text-amber-700',
+  },
+  {
+    id: 'grain',
+    source: '禾部田園',
+    name: '稻穗穗飾',
+    icon: <Icons.Seed size={22} className="text-green-600" />,
+    shellClassName: 'border-green-200 bg-green-50 text-green-900',
+    iconClassName: 'bg-green-100 text-green-700',
+  },
+  {
+    id: 'fire',
+    source: '火部廚房',
+    name: '星光配件',
+    icon: <Icons.Fire size={22} className="text-red-500" />,
+    shellClassName: 'border-red-200 bg-red-50 text-red-900',
+    iconClassName: 'bg-red-100 text-red-700',
+  },
+  {
+    id: 'speech',
+    source: '言部書院',
+    name: '題字冠牌',
+    icon: <Scroll size={22} className="text-indigo-600" />,
+    shellClassName: 'border-indigo-200 bg-indigo-50 text-indigo-900',
+    iconClassName: 'bg-indigo-100 text-indigo-700',
+  },
+];
 
 // ... (in GeminiApp component)
 
@@ -1501,6 +1574,20 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     return null;
   };
 
+  const getCurrentTargetStrokeToken = () => {
+    if (gameStateRef.current === GAME_STATE.TEST) {
+      const activeTestCharacter = testCharacterRef.current;
+      return normalizeTargetStrokeToken(activeTestCharacter?.strokes?.[currentStrokeIndexRef.current]?.type);
+    }
+
+    if (gameStateRef.current === GAME_STATE.PLAYING) {
+      const activeLevelData = gameLevelDataRef.current;
+      return normalizeTargetStrokeToken(activeLevelData?.strokes?.[currentStrokeIndexRef.current]?.type);
+    }
+
+    return null;
+  };
+
   function cycleLevelSelection(step = 1) {
     const total = PROFESSION_LEVELS.length;
     if (!total) return;
@@ -1838,6 +1925,31 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
               }
           }
           continue;
+      }
+
+      const candidateStroke = parseCandidateStrokeCodes(data);
+      if (candidateStroke) {
+        addLog(`收到候選: "${data}" -> ${candidateStroke.tokens.join(', ') || '(空)'}`);
+
+        if (pendingStrokeRef.current) {
+          flushPendingStroke('before-candidate');
+        }
+
+        const targetToken = getCurrentTargetStrokeToken();
+        const targetDirection = getCurrentTargetDirection();
+
+        if (!targetToken || !targetDirection) {
+          addLog('⚠️ 候選忽略：目前沒有可判定的目標筆畫');
+          continue;
+        }
+
+        if (candidateStroke.tokens.includes(targetToken)) {
+          addLog(`🎯 候選命中目標: ${targetToken}`);
+          deliverStrokeDirection(targetDirection, `CAND命中/${targetToken}`);
+        } else {
+          addLog(`❌ 候選未命中目標: ${candidateStroke.tokens.join(', ') || '(空)'} / 目標=${targetToken}`);
+        }
+        continue;
       }
 
       const normalizedToken = normalizeStrokeToken(data);
@@ -2581,9 +2693,17 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
 
       {gameState === GAME_STATE.MENU && (
         <div className="w-full max-w-6xl flex flex-col items-center">
-          
+          <div className="relative z-10 mb-5 text-center">
+            <div className="relative inline-block">
+              <h1 className="text-5xl md:text-7xl font-bold text-amber-700 drop-shadow-lg font-kai tracking-wide leading-tight">
+                行行出狀元
+              </h1>
+              <div className="absolute -top-5 -right-7 text-4xl md:text-5xl animate-bounce">🎓</div>
+            </div>
+          </div>
+
           {/* 首頁固定顯示 Landing Page；連線成功時只更新右側狀態，不切換頁面 */}
-          <div className="flex flex-col md:flex-row items-center justify-center gap-12 w-full px-4 py-8 animate-fade-in relative">
+          <div className="flex flex-col md:flex-row items-start justify-center gap-8 md:gap-10 w-full px-4 pt-2 pb-6 animate-fade-in relative">
               
               {/* 背景裝飾圖標 (Background Icons) */}
               <div className="absolute top-10 left-10 opacity-10 rotate-12 pointer-events-none text-amber-800"><Icons.Hammer size={120} /></div>
@@ -2591,27 +2711,20 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
               <div className="absolute top-20 right-20 opacity-10 rotate-45 pointer-events-none text-red-800"><Icons.Fire size={80} /></div>
 
               {/* 左側：品牌與故事 (Left Column: Brand & Story) */}
-              <div className="flex-1 text-center md:text-left space-y-8 max-w-xl z-10">
-                  <div className="relative inline-block">
-                      <h1 className="text-6xl md:text-8xl font-bold text-amber-700 drop-shadow-lg font-kai tracking-wide leading-tight">
-                        行行出狀元
-                      </h1>
-                      <div className="absolute -top-6 -right-8 text-5xl animate-bounce">🎓</div>
-                  </div>
-                  
-                  <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl border-l-8 border-amber-500 text-left transform transition-all hover:scale-[1.02] relative overflow-hidden">
+              <div className="flex-1 w-full max-w-xl text-center md:text-left z-10">
+                  <div className="bg-white/90 backdrop-blur-md p-6 md:p-7 rounded-3xl shadow-xl border-l-8 border-amber-500 text-left transform transition-all hover:scale-[1.02] relative overflow-hidden">
                       <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none"><Award size={150} /></div>
-                      <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                      <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-3 flex items-center gap-3">
                           <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：百變工具體驗營
                       </h2>
-                      <div className="space-y-5 font-kai text-slate-700">
-                          <div className="text-2xl md:text-[2rem] leading-tight text-amber-700 font-bold drop-shadow-sm">
+                      <div className="space-y-4 font-kai text-slate-700">
+                          <div className="text-xl md:text-[1.8rem] leading-tight text-amber-700 font-bold drop-shadow-sm">
                             想成為狀元，先要通過試煉
                             <span className="ml-2 inline-block text-amber-500 animate-pulse">🌟</span>
                             <span className="ml-1 inline-block text-amber-400 animate-pulse">🌟</span>
                           </div>
 
-                          <p className="text-lg md:text-xl leading-8">
+                          <p className="text-base md:text-lg leading-7">
                             你的
                             <span className="mx-2 inline-block rounded-xl border border-blue-200 bg-blue-50 px-3 py-1 text-xl font-bold text-blue-700 shadow-sm">
                               Micro:bit
@@ -2623,9 +2736,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                             。
                           </p>
 
-                          <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 via-white to-green-50 px-4 py-4 shadow-sm">
-                            <div className="mb-3 text-base font-bold tracking-[0.2em] text-slate-500">四界冒險</div>
-                            <p className="text-lg leading-8 text-slate-600">
+                          <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 via-white to-green-50 px-4 py-3.5 shadow-sm">
+                            <div className="mb-2 text-sm md:text-base font-bold tracking-[0.2em] text-slate-500">四界冒險</div>
+                            <p className="text-base md:text-lg leading-7 text-slate-600">
                               你會前往
                               <span className="mx-1 font-bold text-amber-700">木工坊</span>
                               、
@@ -2636,7 +2749,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                               <span className="mx-1 font-bold text-indigo-700">書院</span>
                               ，體驗不同職業並完成任務。
                             </p>
-                            <p className="mt-2 text-base md:text-lg leading-7 text-slate-600">
+                            <p className="mt-2 text-sm md:text-base leading-6 text-slate-600">
                               每次過關都會掉落
                               <span className="mx-1 font-bold text-amber-700">一件狀元帽配件</span>
                               ，還會保留對應的
@@ -2645,8 +2758,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                             </p>
                           </div>
 
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-4 shadow-sm">
-                            <p className="text-xl md:text-2xl font-bold leading-9 text-slate-800">
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3.5 shadow-sm">
+                            <p className="text-lg md:text-xl font-bold leading-8 text-slate-800">
                               集齊
                               <span className="mx-1 text-amber-700">四界配件</span>
                               後，就能親手
@@ -3104,9 +3217,39 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       )}
 
       {gameState === GAME_STATE.WON && (
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl text-center max-w-md w-full border-4 border-amber-200 animate-bounce-in">
+        <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl text-center max-w-3xl w-full border-4 border-amber-200 animate-bounce-in">
           <div className="mb-6 text-8xl filter drop-shadow-md">🏆</div>
           <h2 className="text-3xl font-bold mb-4 text-amber-600 font-kai">狀元及第！</h2>
+          <div className="mb-8 rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 md:p-6 shadow-inner">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {WON_CROWN_PARTS.map((part) => (
+                <div
+                  key={part.id}
+                  className={`rounded-2xl border px-4 py-4 text-left shadow-sm ${part.shellClassName}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`rounded-2xl p-2.5 ${part.iconClassName}`}>
+                      {part.icon}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold tracking-[0.2em] opacity-70">{part.source}</div>
+                      <div className="mt-1 text-base font-bold">{part.name}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-[1.75rem] border-2 border-amber-300 bg-gradient-to-b from-amber-100 via-yellow-50 to-white px-5 py-5 shadow-lg shadow-amber-100">
+              <div className="text-5xl md:text-6xl drop-shadow-sm">🎓</div>
+              <div className="mt-2 text-sm font-bold tracking-[0.35em] text-amber-700">最終完成</div>
+              <div className="mt-2 text-2xl md:text-3xl font-bold text-slate-800 font-kai">狀元帽已合成</div>
+              <p className="mt-3 text-sm md:text-base leading-7 text-slate-600">
+                木框骨架、稻穗穗飾、星光配件與題字冠牌已全部到位，
+                你已完成四方試煉，正式成為小小狀元。
+              </p>
+            </div>
+          </div>
           <p className="text-slate-600 mb-8 font-kai text-lg leading-relaxed">太棒了！<br/>你已完成四方試煉，集齊配件做好狀元帽，正式成為小小狀元！</p>
           <div className="flex justify-center gap-4">
              <button 
