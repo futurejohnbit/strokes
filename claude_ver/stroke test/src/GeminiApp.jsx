@@ -2443,10 +2443,10 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                   <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl border-l-8 border-amber-500 text-left transform transition-all hover:scale-[1.02] relative overflow-hidden">
                       <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none"><Award size={150} /></div>
                       <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
-                          <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：狀元試煉場
+                          <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：百變工具體驗營
                       </h2>
                       <p className="text-slate-600 leading-relaxed font-kai text-xl">
-                          想成為狀元，先要通過試煉。<br/>
+                          想成為狀元，先要通過試煉。🌟🌟<br/>
                           你的 <span className="text-blue-600 font-bold bg-blue-50 px-2 rounded border border-blue-200">Micro:bit</span> 就是一把「百變工具」。
                           <br/><br/>
                           你會前往木工坊、田園、廚房和書院，體驗不同職業並完成任務；每次過關都會掉落一件狀元帽配件，還會保留對應的徽章。
