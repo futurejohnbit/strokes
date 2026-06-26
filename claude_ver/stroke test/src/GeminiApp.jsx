@@ -163,6 +163,7 @@ const UART_RX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
 // 筆劃代碼對照表：BLE 傳輸層改用單字節代碼，遊戲內部仍使用筆劃名稱。
 const STROKE_CODE_TO_TOKEN = {
+  '0': 'BLANK',
   '1': 'HENG',
   '2': 'SHU',
   '3': 'TI',
@@ -171,6 +172,8 @@ const STROKE_CODE_TO_TOKEN = {
   '6': 'HENGPIE',
   '7': 'SHUGOU',
   '8': 'HENGSHUGOU',
+  '9': 'PIE',
+  '10': 'HENGZHE',
 };
 
 // 筆劃映射表 (Micro:bit UART -> 遊戲方向)
@@ -208,6 +211,12 @@ const MICROBIT_BUTTON_TOKEN_MAP = {
   P14_CLICK: 'ENTER',
   PIN14_ENTER: 'ENTER',
   P14_ENTER: 'ENTER',
+  PIN14_NEXT: 'NEXT',
+  P14_NEXT: 'NEXT',
+  PIN14_DBL: 'NEXT',
+  P14_DBL: 'NEXT',
+  PIN14_DOUBLE: 'NEXT',
+  P14_DOUBLE: 'NEXT',
 };
 
 const normalizeMicrobitButtonToken = (value) => MICROBIT_BUTTON_TOKEN_MAP[value] || null;
@@ -1477,6 +1486,125 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     });
   }
 
+  function cycleMenuSelection() {
+    setMenuButtonCursor((prev) => {
+      const next = (prev + 1) % 2;
+      const label = isConnectedRef.current
+        ? (next === 0 ? '開始試煉' : '斷開目前連接')
+        : (next === 0 ? '連結Micro:bit' : '跳過連接，前往選關');
+      setFeedback(`預選：${label}`);
+      setFeedbackType('info');
+      return next;
+    });
+  }
+
+  function cycleIntroSelection() {
+    setIntroButtonCursor((prev) => {
+      const next = (prev + 1) % 2;
+      setFeedback(`預選：${next === 0 ? '開始試煉' : '返回選關'}`);
+      setFeedbackType('info');
+      return next;
+    });
+  }
+
+  function cycleAchievementSelection() {
+    setAchievementButtonCursor((prev) => {
+      const next = (prev + 1) % 2;
+      setFeedback(`預選：${next === 0 ? '主選單' : '返回選關'}`);
+      setFeedbackType('info');
+      return next;
+    });
+  }
+
+  function advanceMicrobitSelection() {
+    const currentGameState = gameStateRef.current;
+
+    if (currentGameState === GAME_STATE.MENU) {
+      playPositiveSfx('step');
+      cycleMenuSelection();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_SELECT) {
+      playPositiveSfx('step');
+      cycleLevelSelection(1);
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_INTRO) {
+      playPositiveSfx('step');
+      cycleIntroSelection();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.ACHIEVEMENT) {
+      playPositiveSfx('step');
+      cycleAchievementSelection();
+      return;
+    }
+  }
+
+  function confirmMicrobitSelection() {
+    const currentGameState = gameStateRef.current;
+
+    if (currentGameState === GAME_STATE.MENU) {
+      if (isConnectedRef.current) {
+        if (menuButtonCursorRef.current === 0) {
+          playPositiveSfx('reward');
+          startGame();
+        } else {
+          onDisconnected();
+        }
+        return;
+      }
+
+      if (menuButtonCursorRef.current === 0) {
+        connectMicrobit();
+      } else {
+        playPositiveSfx('reward');
+        startGame();
+      }
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_SELECT) {
+      playPositiveSfx('reward');
+      selectLevel(levelSelectCursorRef.current);
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LEVEL_INTRO) {
+      playPositiveSfx('reward');
+      if (introButtonCursorRef.current === 0) {
+        startCurrentLevel();
+      } else {
+        goToLevelSelect();
+      }
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.CHAR_PREVIEW) {
+      playPositiveSfx('reward');
+      skipPronunciationPreview();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.LOST) {
+      playPositiveSfx('reward');
+      goToLevelSelect();
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.ACHIEVEMENT) {
+      playPositiveSfx('reward');
+      if (achievementButtonCursorRef.current === 0) {
+        returnToMenu();
+      } else {
+        handleNextLevel();
+      }
+    }
+  }
+
   function handleMicrobitButton(buttonKind) {
     const currentGameState = gameStateRef.current;
 
@@ -1484,32 +1612,13 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       return;
     }
 
-    if (!isConnectedRef.current && currentGameState === GAME_STATE.MENU) {
-      setFeedback('請先連接 Micro:bit，再用按鈕進入關卡。');
-      setFeedbackType('info');
+    if (buttonKind === 'NEXT') {
+      advanceMicrobitSelection();
       return;
     }
 
     if (buttonKind === 'ENTER') {
-      if (currentGameState === GAME_STATE.MENU) {
-        playPositiveSfx('reward');
-        startGame();
-        return;
-      }
-      if (currentGameState === GAME_STATE.LEVEL_SELECT) {
-        playPositiveSfx('reward');
-        selectLevel(levelSelectCursorRef.current);
-        return;
-      }
-      if (currentGameState === GAME_STATE.LEVEL_INTRO) {
-        playPositiveSfx('reward');
-        startCurrentLevel();
-        return;
-      }
-      if (currentGameState === GAME_STATE.CHAR_PREVIEW) {
-        playPositiveSfx('reward');
-        skipPronunciationPreview();
-      }
+      confirmMicrobitSelection();
       return;
     }
 
@@ -2360,16 +2469,16 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   return (
     <div className={`min-h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
       
-      <header className="w-full max-w-md flex justify-between items-center p-4 shrink-0 z-50">
-        <h1 className="text-2xl font-bold flex items-center gap-2 text-amber-700 font-kai drop-shadow-sm">
-          <div className="bg-amber-500 text-white px-2 py-1 rounded-lg shadow-sm">狀元</div>
+      <header className="w-full max-w-6xl flex flex-wrap items-center justify-between gap-3 px-4 py-4 shrink-0 z-50">
+        <h1 className="min-w-0 shrink-0 text-xl sm:text-2xl font-bold flex items-center gap-3 text-amber-700 font-kai drop-shadow-sm">
+          <div className="bg-amber-500 text-white px-3 py-1 rounded-lg shadow-sm shrink-0">狀元</div>
           行行出狀元
         </h1>
         
         {/* 藍牙狀態顯示 */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-2">
           {batteryLevel !== null && (
-             <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-1 shadow-sm ${batteryLevel <= 10 ? 'bg-red-100 text-red-700 border border-red-300 animate-pulse' : 'bg-green-100 text-green-700 border border-green-300'}`}>
+             <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0 ${batteryLevel <= 10 ? 'bg-red-100 text-red-700 border border-red-300 animate-pulse' : 'bg-green-100 text-green-700 border border-green-300'}`}>
                 <span>🔋</span>
                 <span className="font-bold">{batteryLevel}%</span>
              </div>
@@ -2377,7 +2486,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           <button
             type="button"
             onClick={onToggleMusic}
-            className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm border transition-colors ${
+            className={`text-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border transition-colors whitespace-nowrap shrink-0 ${
               musicEnabled
                 ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
                 : 'bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-300'
@@ -2391,11 +2500,11 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           </button>
           <button
             onClick={() => window.location.assign('/debug')}
-            className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
+            className="text-sm px-4 py-2 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm whitespace-nowrap shrink-0"
           >
             調試
           </button>
-          <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
+          <div className={`text-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-sm whitespace-nowrap shrink-0 ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
             <Bluetooth size={14} className={isConnected ? "text-green-600" : "text-slate-400"} /> 
             <span>{isConnected ? '已連接' : '未連接'}</span>
           </div>
@@ -2422,9 +2531,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       {gameState === GAME_STATE.MENU && (
         <div className="w-full max-w-6xl flex flex-col items-center">
           
-          {/* 未連接時顯示首頁 (Landing Page) */}
-          {!isConnected ? (
-            <div className="flex flex-col md:flex-row items-center justify-center gap-12 w-full px-4 py-8 animate-fade-in relative">
+          {/* 首頁固定顯示 Landing Page；連線成功時只更新右側狀態，不切換頁面 */}
+          <div className="flex flex-col md:flex-row items-center justify-center gap-12 w-full px-4 py-8 animate-fade-in relative">
               
               {/* 背景裝飾圖標 (Background Icons) */}
               <div className="absolute top-10 left-10 opacity-10 rotate-12 pointer-events-none text-amber-800"><Icons.Hammer size={120} /></div>
@@ -2445,14 +2553,61 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                       <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
                           <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：百變工具體驗營
                       </h2>
-                      <p className="text-slate-600 leading-relaxed font-kai text-xl">
-                          想成為狀元，先要通過試煉。🌟🌟<br/>
-                          你的 <span className="text-blue-600 font-bold bg-blue-50 px-2 rounded border border-blue-200">Micro:bit</span> 就是一把「百變工具」。
-                          <br/><br/>
-                          你會前往木工坊、田園、廚房和書院，體驗不同職業並完成任務；每次過關都會掉落一件狀元帽配件，還會保留對應的徽章。
-                          <br/><br/>
-                          集齊四界配件後，就能親手合成狀元帽，正式成為小小狀元！✨
-                      </p>
+                      <div className="space-y-5 font-kai text-slate-700">
+                          <div className="text-2xl md:text-[2rem] leading-tight text-amber-700 font-bold drop-shadow-sm">
+                            想成為狀元，先要通過試煉
+                            <span className="ml-2 inline-block text-amber-500 animate-pulse">🌟</span>
+                            <span className="ml-1 inline-block text-amber-400 animate-pulse">🌟</span>
+                          </div>
+
+                          <p className="text-lg md:text-xl leading-8">
+                            你的
+                            <span className="mx-2 inline-block rounded-xl border border-blue-200 bg-blue-50 px-3 py-1 text-xl font-bold text-blue-700 shadow-sm">
+                              Micro:bit
+                            </span>
+                            就是一把
+                            <span className="mx-2 inline-block rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 px-3 py-1 font-bold text-amber-800 ring-1 ring-amber-200">
+                              百變工具
+                            </span>
+                            。
+                          </p>
+
+                          <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 via-white to-green-50 px-4 py-4 shadow-sm">
+                            <div className="mb-3 text-base font-bold tracking-[0.2em] text-slate-500">四界冒險</div>
+                            <p className="text-lg leading-8 text-slate-600">
+                              你會前往
+                              <span className="mx-1 font-bold text-amber-700">木工坊</span>
+                              、
+                              <span className="mx-1 font-bold text-green-700">田園</span>
+                              、
+                              <span className="mx-1 font-bold text-red-600">廚房</span>
+                              和
+                              <span className="mx-1 font-bold text-indigo-700">書院</span>
+                              ，體驗不同職業並完成任務。
+                            </p>
+                            <p className="mt-2 text-base md:text-lg leading-7 text-slate-600">
+                              每次過關都會掉落
+                              <span className="mx-1 font-bold text-amber-700">一件狀元帽配件</span>
+                              ，還會保留對應的
+                              <span className="mx-1 font-bold text-violet-700">徽章</span>
+                              。
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-4 shadow-sm">
+                            <p className="text-xl md:text-2xl font-bold leading-9 text-slate-800">
+                              集齊
+                              <span className="mx-1 text-amber-700">四界配件</span>
+                              後，就能親手
+                              <span className="mx-1 bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">
+                                合成狀元帽
+                              </span>
+                              ，正式成為
+                              <span className="mx-1 text-rose-600">小小狀元</span>
+                              ！✨
+                            </p>
+                          </div>
+                      </div>
                   </div>
               </div>
 
@@ -2468,6 +2623,32 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                       </div>
 
                       <div className="flex flex-col gap-4 w-full">
+                        {isConnected && (
+                          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-left shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className="rounded-full bg-green-100 p-2 text-green-700">
+                                <Bluetooth size={18} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-green-900">Micro:bit 已連接</div>
+                                <div className="mt-1 text-sm leading-6 text-green-800">
+                                  百變工具已就緒，首頁維持不變，你可以直接開始試煉。
+                                </div>
+                                {deviceName && (
+                                  <div className="mt-2 text-xs font-semibold text-green-700/90">
+                                    已連接裝置：{deviceName}
+                                  </div>
+                                )}
+                                {connectionStep && (
+                                  <div className="mt-1 text-xs font-semibold text-green-700/80">
+                                    狀態：{connectionStep}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <button
                           onClick={onToggleMusic}
                           className={`w-full rounded-2xl border px-5 py-4 text-left shadow-sm transition-all hover:-translate-y-0.5 ${
@@ -2490,13 +2671,23 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                         </button>
 
                         <button 
-                          onClick={connectMicrobit}
+                          onClick={isConnected ? startGame : connectMicrobit}
                           disabled={bleSupport.status === 'loading'}
-                          className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
+                          className={`w-full group relative px-8 py-6 text-white text-2xl font-bold rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-4 border-b-4 ${
+                            isConnected
+                              ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-emerald-200/50 border-green-800 hover:scale-[1.02]'
+                              : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-200/50 border-blue-800 hover:scale-[1.02]'
+                          } ${menuButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]' : ''}`}
                         >
                           <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                          <Bluetooth size={32} className="animate-pulse" /> 
-                          <span>{bleSupport.status === 'loading' ? '檢查藍牙中...' : '連結Micro:bit'}</span>
+                          {isConnected ? <Play size={32} fill="currentColor" /> : <Bluetooth size={32} className="animate-pulse" />}
+                          <span>
+                            {bleSupport.status === 'loading'
+                              ? '檢查藍牙中...'
+                              : isConnected
+                                ? '已連接，開始試煉'
+                                : '連結Micro:bit'}
+                          </span>
                         </button>
 
                         <div className={`rounded-2xl border px-4 py-4 text-left text-sm shadow-sm ${
@@ -2534,11 +2725,15 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                         </div>
 
                         <button 
-                           onClick={startGame}
-                           className="w-full py-4 bg-white hover:bg-amber-50 text-slate-500 hover:text-amber-600 font-bold rounded-2xl border-2 border-slate-200 hover:border-amber-200 transition-all hover:shadow-md flex items-center justify-center gap-2 group"
+                           onClick={isConnected ? onDisconnected : startGame}
+                           className={`w-full py-4 bg-white font-bold rounded-2xl border-2 transition-all hover:shadow-md flex items-center justify-center gap-2 group ${
+                             isConnected
+                               ? 'hover:bg-red-50 text-slate-500 hover:text-red-500 border-slate-200 hover:border-red-200'
+                               : 'hover:bg-amber-50 text-slate-500 hover:text-amber-600 border-slate-200 hover:border-amber-200'
+                           } ${menuButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-amber-300 shadow-lg' : ''}`}
                         >
                            <span className="group-hover:scale-110 transition-transform">🚀</span>
-                           <span className="text-lg">跳過連接，前往選關</span>
+                           <span className="text-lg">{isConnected ? '斷開目前連接' : '跳過連接，前往選關'}</span>
                         </button>
                       </div>
 
@@ -2564,40 +2759,6 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                   </div>
               </div>
             </div>
-          ) : (
-            /* 已連接時顯示準備大廳 (Lobby) */
-            <div className="bg-white/80 backdrop-blur-md p-8 md:p-12 rounded-[2rem] shadow-2xl text-center max-w-2xl w-full border-4 border-green-200 animate-fade-in-up">
-              <div className="mb-6 inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full text-green-500 mb-6 shadow-inner">
-                 <Bluetooth size={48} />
-              </div>
-              
-              <h2 className="text-4xl font-bold mb-2 text-slate-800 font-kai">連接成功！</h2>
-              <p className="text-slate-500 mb-8 font-medium text-lg">百變工具已就緒，準備上工！</p>
-              {deviceName && (
-                <div className="mb-4 text-sm text-slate-500">已連接裝置：{deviceName}</div>
-              )}
-              {connectionStep && (
-                <div className="mb-6 text-xs font-semibold tracking-wide uppercase text-green-700">狀態：{connectionStep}</div>
-              )}
-              
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={startGame}
-                  className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-2xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-200 border-b-4 border-orange-700"
-                >
-                  <Play size={28} fill="currentColor" /> 
-                  選擇部首關卡
-                </button>
-              </div>
-              
-              <button 
-                 onClick={onDisconnected}
-                 className="mt-6 text-slate-400 hover:text-red-400 text-sm flex items-center justify-center gap-2 transition-colors"
-              >
-                 斷開連接
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -2616,7 +2777,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                 </div>
                 {isConnected && (
                   <div className="px-4 py-2 rounded-2xl bg-blue-50 border border-blue-200 text-blue-800 font-bold">
-                    A 切換關卡 · B 進入 · A+B 返回
+                    P14 雙擊切換預選 · 單擊確認
                   </div>
                 )}
                 <button
@@ -2870,7 +3031,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           <button
             type="button"
             onClick={skipPronunciationPreview}
-            className={`w-[min(55vw,55vh)] min-w-[260px] aspect-square rounded-[2.5rem] shadow-2xl text-center border-4 flex items-center justify-center ${getProfessionTheme(gameLevelData?.profession?.id).bg} ${getProfessionTheme(gameLevelData?.profession?.id).border}`}
+            className={`w-[min(55vw,55vh)] min-w-[260px] aspect-square rounded-[2.5rem] shadow-2xl text-center border-4 flex items-center justify-center ring-4 ring-offset-4 ring-amber-200 ${getProfessionTheme(gameLevelData?.profession?.id).bg} ${getProfessionTheme(gameLevelData?.profession?.id).border}`}
           >
             <span className="block font-kai text-slate-800 drop-shadow-sm leading-none text-[min(38vw,38vh)]">
               {isLoadingLevel || !gameLevelData ? '...' : gameLevelData.char}
@@ -2907,6 +3068,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
         profession={PROFESSION_LEVELS[level]}
         ceremony={levelCeremonyPayload}
         nextLabel="返回選關"
+        selectedAction={achievementButtonCursor === 0 ? 'menu' : 'next'}
       />
 
       {showCelebration && (
@@ -2985,13 +3147,17 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             <div className="mt-auto flex flex-col sm:flex-row gap-3">
               <button 
                   onClick={startCurrentLevel}
-                  className={`flex-1 py-4 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-xl bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900`}
+                  className={`flex-1 py-4 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-xl bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900 ${
+                    introButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-slate-200 scale-[1.02]' : ''
+                  }`}
               >
                   <Play size={24} fill="currentColor" /> 開始試煉
               </button>
               <button
                   onClick={goToLevelSelect}
-                  className="flex-1 py-4 bg-white/80 hover:bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-white/80 transition-colors"
+                  className={`flex-1 py-4 bg-white/80 hover:bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-white/80 transition-colors ${
+                    introButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-white scale-[1.02] border-white shadow-lg' : ''
+                  }`}
               >
                   返回選關
               </button>
