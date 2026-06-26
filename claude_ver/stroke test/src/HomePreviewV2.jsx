@@ -155,15 +155,15 @@ export default function HomePreviewV2({ navigate, onPulseSfx }) {
 
             <div className="space-y-3">
               <h1 className="home-v2-hero-line home-v2-hero-title text-5xl font-black leading-tight text-slate-900 md:text-6xl font-kai">
-                {splitTitle('四大職業世界')}
+                {splitTitle('四大職業試煉')}
               </h1>
               <h1 className="home-v2-hero-line home-v2-hero-title text-5xl font-black leading-tight text-slate-900 md:text-6xl font-kai">
-                {splitTitle('如何合成狀元冠帽')}
+                {splitTitle('如何合成狀元帽')}
               </h1>
             </div>
 
             <p className="home-v2-hero-copy max-w-2xl text-lg leading-8 text-slate-600">
-              介紹頁承接展覽短首頁沒有展開的內容：四界角色怎樣做工、每關會完成什麼物件、如何掉落材料，以及最後如何把全部成果組裝成狀元冠帽。
+              介紹頁承接展覽短首頁沒有展開的內容：四界角色怎樣試煉、每關會完成什麼物件、如何掉落配件，以及最後如何把全部成果組裝成狀元帽。
             </p>
 
             <div className="home-v2-hero-copy grid gap-3 md:grid-cols-2">
@@ -176,7 +176,7 @@ export default function HomePreviewV2({ navigate, onPulseSfx }) {
               <div className="rounded-[1.5rem] bg-slate-50 px-4 py-4">
                 <div className="text-sm font-bold text-slate-800">完成與合成回饋</div>
                 <div className="mt-2 text-sm leading-6 text-slate-500">
-                  單一物件完成時先閃光再彈出落定，最終再把四界材料集中組裝。
+                  單一物件完成時先閃光再彈出落定，最終再把四界配件集中組裝。
                 </div>
               </div>
             </div>
@@ -217,7 +217,7 @@ export default function HomePreviewV2({ navigate, onPulseSfx }) {
                 一句話定位
               </div>
               <div className="text-lg font-bold leading-8">
-                短首頁負責一眼看懂，介紹頁負責把世界、徽章、收集與合成一次講完整。
+                短首頁負責一眼看懂，介紹頁負責把試煉、徽章、收集與合成一次講完整。
               </div>
             </div>
           </div>
@@ -278,7 +278,7 @@ export default function HomePreviewV2({ navigate, onPulseSfx }) {
                     <Crown size={30} />
                   </div>
                   <div className="mt-3 text-center text-sm font-bold text-amber-100">最終收藏</div>
-                  <div className="mt-1 text-center text-xl font-black text-white font-kai">狀元冠帽</div>
+                  <div className="mt-1 text-center text-xl font-black text-white font-kai">狀元帽</div>
                 </div>
               </div>
             </div>
@@ -352,7 +352,7 @@ export default function HomePreviewV2({ navigate, onPulseSfx }) {
               </div>
               <h2 className="text-3xl font-bold font-kai">從這裡進下一步：體驗遊戲或看書寫情境</h2>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
-                介紹頁已完整承接世界觀、四大職業、徽章牆、完成動畫與狀元帽合成主線。接下來可直接進入正式遊戲，或打開書寫測試頁展示寫字中的即時回饋。
+                介紹頁已完整承接世界觀、四大職業試煉、徽章牆、完成動畫與狀元帽合成主線。接下來可直接進入正式遊戲，或打開書寫測試頁展示寫字中的即時回饋。
               </p>
             </div>
 

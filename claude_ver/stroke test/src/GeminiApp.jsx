@@ -163,7 +163,6 @@ const UART_RX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
 // 筆劃代碼對照表：BLE 傳輸層改用單字節代碼，遊戲內部仍使用筆劃名稱。
 const STROKE_CODE_TO_TOKEN = {
-  '0': 'BLANK',
   '1': 'HENG',
   '2': 'SHU',
   '3': 'TI',
@@ -172,8 +171,6 @@ const STROKE_CODE_TO_TOKEN = {
   '6': 'HENGPIE',
   '7': 'SHUGOU',
   '8': 'HENGSHUGOU',
-  '9': 'PIE',
-  '10': 'HENGZHE',
 };
 
 // 筆劃映射表 (Micro:bit UART -> 遊戲方向)
@@ -211,12 +208,6 @@ const MICROBIT_BUTTON_TOKEN_MAP = {
   P14_CLICK: 'ENTER',
   PIN14_ENTER: 'ENTER',
   P14_ENTER: 'ENTER',
-  PIN14_NEXT: 'NEXT',
-  P14_NEXT: 'NEXT',
-  PIN14_DBL: 'NEXT',
-  P14_DBL: 'NEXT',
-  PIN14_DOUBLE: 'NEXT',
-  P14_DOUBLE: 'NEXT',
 };
 
 const normalizeMicrobitButtonToken = (value) => MICROBIT_BUTTON_TOKEN_MAP[value] || null;
@@ -227,18 +218,8 @@ const isIgnoredUartMessage = (msg) => {
   return false;
 };
 
-const MICROBIT_CANDIDATE_PREFIX = 'CAND:';
-const STROKE_SESSION_SILENCE_MS = 240;
-const STROKE_SESSION_LEFT_DOWN_WAIT_MS = 650;
-const STROKE_SESSION_MAX_MS = 1200;
-const STROKE_SESSION_STABLE_RATIO = 0.58;
-const STROKE_SESSION_TARGET_BONUS = 0.45;
-const STROKE_SESSION_REPEAT_WEIGHT = 0.35;
-const STROKE_SESSION_WIN_GAP = 0.85;
-
 const LEVEL_PROGRESS_STORAGE_KEY = 'radicalLevelProgress';
 const HANZI_DATA_CACHE = new Map();
-const ENABLE_DEBUG_UI = import.meta.env.DEV;
 
 // 允許的筆劃名稱 (用於篩選字)
 const ALLOWED_STROKES = ['HENG', 'SHU', 'NA', 'DIAN', 'TI', 'HENGPIE', 'SHUGOU', 'HENGSHUGOU', 'HENGZHE', 'PIE'];
@@ -253,7 +234,7 @@ const PROFESSION_LEVELS = [
           icon: <Icons.Hammer size={32} className="text-amber-600" />,
           badgeImage: imgCarpenter,
           color: 'amber',
-          desc: '拿起木工工具，挑戰木部生字的結構與筆勢！',
+          desc: '走進木部工坊試煉，體驗木匠任務，替狀元帽打好木框骨架！',
           chars: [
               { 
                   char: '木', 
@@ -289,7 +270,7 @@ const PROFESSION_LEVELS = [
           icon: <Icons.Seed size={32} className="text-green-600" />,
           badgeImage: imgFarmer,
           color: 'green',
-          desc: '跟著禾部生字走進田園，感受收成的節奏！',
+          desc: '走進禾部田園試煉，體驗農作任務，收集稻穗，製作在狀元帽上的穗飾！',
           chars: [
               { 
                   char: '禾', 
@@ -317,7 +298,7 @@ const PROFESSION_LEVELS = [
           icon: <Icons.Fire size={32} className="text-red-500" />,
           badgeImage: imgChef,
           color: 'red',
-          desc: '拿起炒鍋與鍋鏟，掌握火部生字的熱度與節奏！',
+          desc: '走進火部廚房試煉，做出美食，獲得美芝蓮星星，做出星星配件！',
           chars: [
               { 
                   char: '火', 
@@ -333,7 +314,7 @@ const PROFESSION_LEVELS = [
                   cantonese: 'dang1',
                   tool: '小油燈',
                   story: '點亮燈火，照著鍋邊慢慢炒！',
-                  action_cue: '左邊先點火，右邊丁字要站穩！'
+                  action_cue: '左邊先點火，右邊登字要站穩！'
               },
               {
                   char: '炒',
@@ -353,7 +334,7 @@ const PROFESSION_LEVELS = [
           icon: <Icons.Brush size={32} className="text-indigo-600" />,
           badgeImage: imgScholar,
           color: 'indigo',
-          desc: '拿起毛筆與宣紙，專心練習言部生字的筆畫秩序！',
+          desc: '走進言部書院試煉，體驗題字任務，寫好狀元帽最重要的冠牌！',
           chars: [
               { 
                   char: '言', 
@@ -460,7 +441,7 @@ const classifyStroke = (medians) => {
         return 'HENGZHE';
     }
 
-    // 橫撇必須真的是「先橫後撇」，避免短撇僅因略彎就被誤判。
+    // 橫撇必須真的是先橫後撇，避免短撇只因路徑略彎而被誤判。
     if (isHengPieLike) {
         return 'HENGPIE';
     }
@@ -510,10 +491,15 @@ const classifyStroke = (medians) => {
 
 const FIRE_COMPONENT_STROKE_OVERRIDES = ['DIAN', 'PIE', 'PIE'];
 
-const applyStrokeTypeOverrides = (professionId, char, strokeIndex, strokeType) => {
-    // 火字部件在組合字中統一按「點、撇、撇」處理，避免被幾何分類誤判。
+const applyCharacterStrokeOverrides = (professionId, char, strokeIndex, totalStrokes, strokeType) => {
+    // 火字部件統一按點、撇、撇處理，單字「火」本身除外。
     if (professionId === 'fire' && char !== '火' && strokeIndex < FIRE_COMPONENT_STROKE_OVERRIDES.length) {
         return FIRE_COMPONENT_STROKE_OVERRIDES[strokeIndex];
+    }
+
+    // 燈的倒數第二筆固定視為撇。
+    if (char === '燈' && strokeIndex === totalStrokes - 2) {
+        return 'PIE';
     }
 
     return strokeType;
@@ -524,30 +510,10 @@ const loadHanziData = async (char) => {
         return HANZI_DATA_CACHE.get(char);
     }
 
-    const baseUrl = import.meta.env.BASE_URL || '/';
-    const localUrl = `${baseUrl}hanzi-data/${encodeURIComponent(char)}.json`;
-    const cdnUrl = `https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/${encodeURIComponent(char)}.json`;
+    const response = await fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/${char}.json`);
+    if (!response.ok) throw new Error('找不到該漢字數據');
 
-    const fetchJson = async (url) => {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`hanzi fetch failed: ${response.status}`);
-
-        const contentType = response.headers.get('content-type') || '';
-        if (!contentType.toLowerCase().includes('application/json')) {
-            throw new Error(`hanzi invalid content-type: ${contentType}`);
-        }
-
-        return response.json();
-    };
-
-    let data;
-    try {
-        data = await fetchJson(localUrl);
-    } catch (error) {
-        console.warn(`Local hanzi data unavailable for ${char}, fallback to CDN.`, error);
-        data = await fetchJson(cdnUrl);
-    }
-
+    const data = await response.json();
     HANZI_DATA_CACHE.set(char, data);
     return data;
 };
@@ -678,13 +644,10 @@ const validateCharacterStrokes = (charData) => {
     return true;
 };
 
-const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMusic, onAudioSceneChange }) => {
+const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSceneChange }) => {
   const [gameState, setGameState] = useState(GAME_STATE.MENU);
   const [level, setLevel] = useState(0); // 這裡的 level 代表 "PROFESSION_LEVELS" 的索引
   const [levelSelectCursor, setLevelSelectCursor] = useState(0);
-  const [menuButtonCursor, setMenuButtonCursor] = useState(0);
-  const [introButtonCursor, setIntroButtonCursor] = useState(0);
-  const [achievementButtonCursor, setAchievementButtonCursor] = useState(1);
   const [currentCharIndex, setCurrentCharIndex] = useState(0); // 該職業中的第幾個字
   const [currentStrokeIndex, setCurrentStrokeIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60); // 倒計時 (秒)
@@ -724,17 +687,13 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
   // 調試日誌狀態
   const [debugLogs, setDebugLogs] = useState([]);
-  const [showDebug, setShowDebug] = useState(false);
+  const [showDebug, setShowDebug] = useState(true); // 默認開啟調試模式
   const [bleSupport, setBleSupport] = useState(getBleSupportSnapshot());
   const [connectionStep, setConnectionStep] = useState('');
 
   // 添加日誌函數
   const addLog = (msg) => {
     setDebugLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 50)]); // 增加日誌保留條數
-  };
-
-  const primeAudioIfNeeded = () => {
-    onPrimeAudio?.();
   };
   
   // 藍牙狀態
@@ -748,7 +707,9 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   const correctBurstTimeoutRef = useRef(null);
   const wordCelebrationTimeoutRef = useRef(null);
   const ceremonyTransitionTimeoutRef = useRef(null);
+  const ceremonyOverlayTimeoutRef = useRef(null);
   const successStampRef = useRef(0);
+  const activeLevelRequestRef = useRef(0);
   const [correctBurst, setCorrectBurst] = useState(null);
 
   useEffect(() => {
@@ -928,6 +889,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     window.clearTimeout(correctBurstTimeoutRef.current);
     window.clearTimeout(wordCelebrationTimeoutRef.current);
     window.clearTimeout(ceremonyTransitionTimeoutRef.current);
+    window.clearTimeout(ceremonyOverlayTimeoutRef.current);
   }, []);
 
   useEffect(() => {
@@ -942,9 +904,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   const timeLeftRef = useRef(timeLeft);
   const currentCharIndexRef = useRef(currentCharIndex);
   const levelSelectCursorRef = useRef(levelSelectCursor);
-  const menuButtonCursorRef = useRef(menuButtonCursor);
-  const introButtonCursorRef = useRef(introButtonCursor);
-  const achievementButtonCursorRef = useRef(achievementButtonCursor);
   const isConnectedRef = useRef(isConnected);
   
   // 新增：防抖與過渡狀態 Ref
@@ -1002,10 +961,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     setShowCelebration(true);
     playPositiveSfx('ceremony');
     window.clearTimeout(ceremonyTransitionTimeoutRef.current);
+    window.clearTimeout(ceremonyOverlayTimeoutRef.current);
     ceremonyTransitionTimeoutRef.current = window.setTimeout(() => {
       setGameState(GAME_STATE.ACHIEVEMENT);
     }, 3000);
-    window.setTimeout(() => setShowCelebration(false), 3000);
+    ceremonyOverlayTimeoutRef.current = window.setTimeout(() => setShowCelebration(false), 3000);
   };
 
   useEffect(() => {
@@ -1016,27 +976,10 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     timeLeftRef.current = timeLeft;
     currentCharIndexRef.current = currentCharIndex;
     levelSelectCursorRef.current = levelSelectCursor;
-    menuButtonCursorRef.current = menuButtonCursor;
-    introButtonCursorRef.current = introButtonCursor;
-    achievementButtonCursorRef.current = achievementButtonCursor;
     gameLevelDataRef.current = gameLevelData;
     testCharacterRef.current = testCharacter;
     isConnectedRef.current = isConnected;
-  }, [gameState, level, currentStrokeIndex, completedStrokes, timeLeft, currentCharIndex, levelSelectCursor, menuButtonCursor, introButtonCursor, achievementButtonCursor, gameLevelData, testCharacter, isConnected]);
-
-  useEffect(() => {
-    if (gameState === GAME_STATE.MENU) {
-      setMenuButtonCursor(0);
-      return;
-    }
-    if (gameState === GAME_STATE.LEVEL_INTRO) {
-      setIntroButtonCursor(0);
-      return;
-    }
-    if (gameState === GAME_STATE.ACHIEVEMENT) {
-      setAchievementButtonCursor(1);
-    }
-  }, [gameState, isConnected]);
+  }, [gameState, level, currentStrokeIndex, completedStrokes, timeLeft, currentCharIndex, levelSelectCursor, gameLevelData, testCharacter, isConnected]);
 
   const analyzeStrokeDirection = (medians) => {
       if (!medians || medians.length < 2) return 'unknown';
@@ -1232,6 +1175,10 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
   const goToLevelSelect = () => {
      clearPronunciationPreview();
+     window.clearTimeout(ceremonyTransitionTimeoutRef.current);
+     window.clearTimeout(ceremonyOverlayTimeoutRef.current);
+     activeLevelRequestRef.current += 1;
+     setShowCelebration(false);
      setGameLevelData(null);
      setCompletedStrokes([]);
      setCurrentStrokeIndex(0);
@@ -1245,15 +1192,42 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
      isTransitioningRef.current = false;
      isAnimatingRef.current = false;
      setLevelSelectCursor(levelRef.current);
-     setFeedback('請選擇想挑戰的部首關卡');
+     setFeedback('請選擇想先挑戰的職業試煉');
      setFeedbackType('info');
      setGameState(GAME_STATE.LEVEL_SELECT);
   };
 
-  const selectLevel = (levelIndex) => {
-     primeAudioIfNeeded();
+  const returnToMenu = () => {
      clearPronunciationPreview();
+     window.clearTimeout(ceremonyTransitionTimeoutRef.current);
+     window.clearTimeout(ceremonyOverlayTimeoutRef.current);
+     window.clearTimeout(wordCelebrationTimeoutRef.current);
+     window.clearTimeout(correctBurstTimeoutRef.current);
+     activeLevelRequestRef.current += 1;
+     setShowCelebration(false);
+     setLevelCeremonyPayload(null);
+     setWordCelebration(null);
+     setCorrectBurst(null);
+     setGameLevelData(null);
+     setCompletedStrokes([]);
+     setCurrentStrokeIndex(0);
+     setCurrentCharIndex(0);
+     setShowHint(false);
+     setShowPopupHint(null);
+     setAnimationPoint(null);
+     setIsAnimating(false);
+     isTransitioningRef.current = false;
+     isAnimatingRef.current = false;
+     setGameState(GAME_STATE.MENU);
+  };
+
+  const selectLevel = (levelIndex) => {
+     clearPronunciationPreview();
+     window.clearTimeout(ceremonyTransitionTimeoutRef.current);
+     window.clearTimeout(ceremonyOverlayTimeoutRef.current);
+     activeLevelRequestRef.current += 1;
      setLevel(levelIndex);
+     levelRef.current = levelIndex;
      setLevelSelectCursor(levelIndex);
      setCurrentCharIndex(0);
      setCurrentStrokeIndex(0);
@@ -1267,7 +1241,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   };
 
   const skipPronunciationPreview = () => {
-     primeAudioIfNeeded();
      clearPronunciationPreview();
      setGameState(GAME_STATE.PLAYING);
   };
@@ -1276,7 +1249,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
      clearPronunciationPreview();
      stopLevelTimer();
      setShowCelebration(false);
-     setFeedback('已跳過本關，返回部首選關。');
+     setFeedback('已跳過本關，返回職業試煉選單。');
      setFeedbackType('info');
      goToLevelSelect();
   };
@@ -1477,24 +1450,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     }
   };
 
-  const clearPendingStrokeSession = () => {
-    clearPendingStrokeTimer();
-    pendingStrokeRef.current = null;
-  };
-
-  const getPendingStrokeDelay = (targetDirection) => (
-    targetDirection === 'left-down'
-      ? STROKE_SESSION_LEFT_DOWN_WAIT_MS
-      : STROKE_SESSION_SILENCE_MS
-  );
-
-  const schedulePendingStrokeFlush = (targetDirection, reason = 'silence') => {
-    clearPendingStrokeTimer();
-    pendingStrokeTimerRef.current = setTimeout(() => {
-      flushPendingStroke(reason);
-    }, getPendingStrokeDelay(targetDirection));
-  };
-
   const getCurrentTargetDirection = () => {
     if (gameStateRef.current === GAME_STATE.TEST) {
       const activeTestCharacter = testCharacterRef.current;
@@ -1522,123 +1477,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     });
   }
 
-  function cycleMenuSelection() {
-    setMenuButtonCursor((prev) => {
-      const next = (prev + 1) % 2;
-      const label = isConnectedRef.current
-        ? (next === 0 ? '選擇部首關卡' : '斷開連接')
-        : (next === 0 ? '連結 Micro:bit' : '跳過連接');
-      addLog(`🎯 預選按鈕: ${label}`);
-      return next;
-    });
-  }
-
-  function cycleIntroSelection() {
-    setIntroButtonCursor((prev) => {
-      const next = (prev + 1) % 2;
-      addLog(`🎯 預選按鈕: ${next === 0 ? '開始試煉' : '返回選關'}`);
-      return next;
-    });
-  }
-
-  function cycleAchievementSelection() {
-    setAchievementButtonCursor((prev) => {
-      const next = (prev + 1) % 2;
-      addLog(`🎯 預選按鈕: ${next === 0 ? '主選單' : '返回選關'}`);
-      return next;
-    });
-  }
-
-  function advanceMicrobitSelection() {
-    const currentGameState = gameStateRef.current;
-
-    if (currentGameState === GAME_STATE.MENU) {
-      cycleMenuSelection();
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.LEVEL_SELECT) {
-      playPositiveSfx('step');
-      cycleLevelSelection(1);
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.LEVEL_INTRO) {
-      playPositiveSfx('step');
-      cycleIntroSelection();
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.ACHIEVEMENT) {
-      playPositiveSfx('step');
-      cycleAchievementSelection();
-      return;
-    }
-
-    addLog('ℹ️ 目前畫面沒有可切換的預選按鈕');
-  }
-
-  function confirmMicrobitSelection() {
-    const currentGameState = gameStateRef.current;
-
-    if (currentGameState === GAME_STATE.MENU) {
-      if (isConnectedRef.current) {
-        if (menuButtonCursorRef.current === 0) {
-          playPositiveSfx('reward');
-          startGame();
-        } else {
-          onDisconnected();
-        }
-        return;
-      }
-
-      if (menuButtonCursorRef.current === 0) {
-        connectMicrobit();
-      } else {
-        startGame();
-      }
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.LEVEL_SELECT) {
-      playPositiveSfx('reward');
-      selectLevel(levelSelectCursorRef.current);
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.LEVEL_INTRO) {
-      playPositiveSfx('reward');
-      if (introButtonCursorRef.current === 0) {
-        startCurrentLevel();
-      } else {
-        goToLevelSelect();
-      }
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.CHAR_PREVIEW) {
-      playPositiveSfx('reward');
-      skipPronunciationPreview();
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.LOST) {
-      playPositiveSfx('reward');
-      startGame();
-      return;
-    }
-
-    if (currentGameState === GAME_STATE.ACHIEVEMENT) {
-      playPositiveSfx('reward');
-      if (achievementButtonCursorRef.current === 0) {
-        clearPronunciationPreview();
-        setGameState(GAME_STATE.MENU);
-      } else {
-        handleNextLevel();
-      }
-    }
-  }
-
   function handleMicrobitButton(buttonKind) {
     const currentGameState = gameStateRef.current;
 
@@ -1646,13 +1484,32 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       return;
     }
 
-    if (buttonKind === 'NEXT') {
-      advanceMicrobitSelection();
+    if (!isConnectedRef.current && currentGameState === GAME_STATE.MENU) {
+      setFeedback('請先連接 Micro:bit，再用按鈕進入關卡。');
+      setFeedbackType('info');
       return;
     }
 
     if (buttonKind === 'ENTER') {
-      confirmMicrobitSelection();
+      if (currentGameState === GAME_STATE.MENU) {
+        playPositiveSfx('reward');
+        startGame();
+        return;
+      }
+      if (currentGameState === GAME_STATE.LEVEL_SELECT) {
+        playPositiveSfx('reward');
+        selectLevel(levelSelectCursorRef.current);
+        return;
+      }
+      if (currentGameState === GAME_STATE.LEVEL_INTRO) {
+        playPositiveSfx('reward');
+        startCurrentLevel();
+        return;
+      }
+      if (currentGameState === GAME_STATE.CHAR_PREVIEW) {
+        playPositiveSfx('reward');
+        skipPronunciationPreview();
+      }
       return;
     }
 
@@ -1677,7 +1534,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       }
       if (buttonKind === 'AB') {
         playPositiveSfx('step');
-        setGameState(GAME_STATE.MENU);
+        returnToMenu();
       }
       return;
     }
@@ -1719,7 +1576,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     if (currentGameState === GAME_STATE.ACHIEVEMENT) {
       if (buttonKind === 'B' || buttonKind === 'AB') {
         playPositiveSfx('reward');
-        setGameState(GAME_STATE.MENU);
+        returnToMenu();
       }
     }
   }
@@ -1731,55 +1588,16 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
   const flushPendingStroke = (reason = 'timeout') => {
     const pending = pendingStrokeRef.current;
-    if (!pending?.samples?.length) return;
+    if (!pending) return;
 
     clearPendingStrokeTimer();
     pendingStrokeRef.current = null;
 
     const now = Date.now();
-    const scoreByDirection = new Map();
-    const tokenByDirection = new Map();
-
-    pending.samples.forEach((sample, index) => {
-      const prev = pending.samples[index - 1];
-      let weight = prev && prev.direction === sample.direction
-        ? STROKE_SESSION_REPEAT_WEIGHT
-        : 1;
-
-      if (sample.direction === pending.targetDirection) {
-        weight += STROKE_SESSION_TARGET_BONUS;
-      }
-
-      if (index === pending.samples.length - 1) {
-        weight += 0.15;
-      }
-
-      scoreByDirection.set(
-        sample.direction,
-        (scoreByDirection.get(sample.direction) || 0) + weight,
-      );
-      tokenByDirection.set(sample.direction, sample.normalizedToken);
-    });
-
-    const rankedDirections = Array.from(scoreByDirection.entries())
-      .sort((a, b) => b[1] - a[1]);
-
-    const winnerDirection = rankedDirections[0]?.[0];
-    const winnerScore = rankedDirections[0]?.[1] || 0;
-    const secondScore = rankedDirections[1]?.[1] || 0;
-    const totalScore = rankedDirections.reduce((sum, [, score]) => sum + score, 0);
-    const dominance = totalScore > 0 ? winnerScore / totalScore : 0;
-    const winnerToken = tokenByDirection.get(winnerDirection) || '';
-
-    if (!winnerDirection) {
-      addLog(`🧹 丟棄空白筆劃會話 (${reason})`);
-      return;
-    }
-
     const upgraded = shouldUpgradeToPie({
       targetDirection: pending.targetDirection,
-      createAiDirection: winnerDirection,
-      createAiToken: winnerToken,
+      createAiDirection: pending.direction,
+      createAiToken: pending.normalizedToken,
       assist: latestImuAssistRef.current,
       now,
       threshold: PIE_CONFIRM_THRESHOLD,
@@ -1787,73 +1605,12 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
     if (upgraded) {
       const assist = latestImuAssistRef.current;
-      addLog(`🩹 IMU 補強撇成功: ${winnerToken} -> left-down (score=${assist?.pieScore ?? 0})`);
+      addLog(`🩹 IMU 補強撇成功: ${pending.normalizedToken} -> left-down (score=${assist?.pieScore ?? 0})`);
       deliverStrokeDirection('left-down', `IMU補強/${reason}`);
       return;
     }
 
-    const isStable = (
-      pending.samples.length === 1
-      || rankedDirections.length === 1
-      || dominance >= STROKE_SESSION_STABLE_RATIO
-      || (winnerScore - secondScore) >= STROKE_SESSION_WIN_GAP
-    );
-
-    if (!isStable) {
-      const sampleSummary = pending.samples.map((sample) => sample.normalizedToken).join('>');
-      addLog(`🧹 丟棄不穩定筆劃: ${sampleSummary} (${reason}, ratio=${dominance.toFixed(2)})`);
-      return;
-    }
-
-    const sampleSummary = pending.samples.map((sample) => sample.normalizedToken).join('>');
-    addLog(`🧠 聚合判定: ${sampleSummary} -> ${winnerDirection} (${reason}, ratio=${dominance.toFixed(2)})`);
-    deliverStrokeDirection(winnerDirection, `聚合穩定/${reason}`);
-  };
-
-  const queuePendingStroke = ({ normalizedToken, direction, targetDirection }) => {
-    const now = Date.now();
-    const currentPending = pendingStrokeRef.current;
-
-    if (
-      currentPending
-      && (
-        (now - currentPending.lastReceivedAt) > getPendingStrokeDelay(currentPending.targetDirection)
-        || (now - currentPending.startedAt) > STROKE_SESSION_MAX_MS
-      )
-    ) {
-      flushPendingStroke('session-rotate');
-    }
-
-    if (!pendingStrokeRef.current) {
-      pendingStrokeRef.current = {
-        targetDirection,
-        startedAt: now,
-        lastReceivedAt: now,
-        samples: [],
-      };
-    }
-
-    pendingStrokeRef.current.lastReceivedAt = now;
-    pendingStrokeRef.current.targetDirection = pendingStrokeRef.current.targetDirection || targetDirection;
-    pendingStrokeRef.current.samples.push({
-      normalizedToken,
-      direction,
-      receivedAt: now,
-    });
-
-    schedulePendingStrokeFlush(pendingStrokeRef.current.targetDirection, 'silence');
-  };
-
-  const parseCandidateStrokeCodes = (raw) => {
-    if (typeof raw !== 'string') return null;
-    const trimmed = raw.trim();
-    if (!trimmed.toUpperCase().startsWith(MICROBIT_CANDIDATE_PREFIX)) return null;
-    const payload = trimmed.slice(MICROBIT_CANDIDATE_PREFIX.length);
-    const codes = payload
-      .split(/[,\s]+/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    return codes.length ? codes : null;
+    deliverStrokeDirection(pending.direction, reason === 'timeout' ? 'CreateAI原判定' : `CreateAI原判定/${reason}`);
   };
 
   const handleMicrobitData = (event) => {
@@ -1883,11 +1640,22 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
         addLog(`IMU 輔助: ${imuAssist.imuDir} score=${imuAssist.pieScore} samples=${imuAssist.sampleCount}`);
 
         const pending = pendingStrokeRef.current;
-        if (pending?.targetDirection === 'left-down') {
-          clearPendingStrokeTimer();
-          pendingStrokeTimerRef.current = setTimeout(() => {
-            flushPendingStroke('imu-ready');
-          }, 40);
+        if (pending) {
+          const upgraded = shouldUpgradeToPie({
+            targetDirection: pending.targetDirection,
+            createAiDirection: pending.direction,
+            createAiToken: pending.normalizedToken,
+            assist: latestImuAssistRef.current,
+            now: receivedAt,
+            threshold: PIE_CONFIRM_THRESHOLD,
+          });
+
+          if (upgraded) {
+            clearPendingStrokeTimer();
+            pendingStrokeRef.current = null;
+            addLog(`🩹 IMU 補強撇成功: ${pending.normalizedToken} -> left-down (score=${imuAssist.pieScore})`);
+            deliverStrokeDirection('left-down', 'IMU即時補強');
+          }
         }
         continue;
       }
@@ -1907,58 +1675,44 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       }
 
       if (data.startsWith('BATTERY_')) {
-        const levelStr = data.replace('BATTERY_', '');
-        const levelNum = parseInt(levelStr, 10);
-        if (!isNaN(levelNum)) {
-          setBatteryLevel(levelNum);
-          if (levelNum <= 10) {
-            setBatteryWarning(true);
+          const levelStr = data.replace('BATTERY_', '');
+          const levelNum = parseInt(levelStr, 10);
+          if (!isNaN(levelNum)) {
+              setBatteryLevel(levelNum);
+              if (levelNum <= 10) {
+                  setBatteryWarning(true);
+              }
           }
-        }
-        continue;
-      }
-
-      const candidateCodes = parseCandidateStrokeCodes(data);
-      if (candidateCodes) {
-        clearPendingStrokeSession();
-        const targetDirection = getCurrentTargetDirection();
-        const candidateDirections = candidateCodes
-          .map((code) => normalizeStrokeToken(code.toUpperCase()))
-          .filter((normalized) => normalized !== 'BLANK')
-          .map((normalized) => STROKE_TOKEN_TO_DIRECTION[normalized])
-          .filter(Boolean);
-
-        if (candidateDirections.length === 0) {
-          addLog(`🫥 候選只包含空白/無效筆劃: ${candidateCodes.join(',')}`);
           continue;
-        }
-
-        const hitTarget = Boolean(targetDirection && candidateDirections.includes(targetDirection));
-        if (hitTarget) {
-          addLog(`🎯 候選命中目標: ${candidateCodes.join(',')} -> ${targetDirection}`);
-          deliverStrokeDirection(targetDirection, '候選命中');
-          continue;
-        }
-
-        const fallbackDirection = candidateDirections[candidateDirections.length - 1];
-        addLog(`❌ 候選未命中目標: ${candidateCodes.join(',')} (目標=${targetDirection || '未知'})`);
-        deliverStrokeDirection(fallbackDirection, '候選未命中');
-        continue;
       }
 
       const normalizedToken = normalizeStrokeToken(data);
       addLog(`收到信號: "${data}" -> "${normalizedToken}"`);
 
-      if (normalizedToken === 'BLANK') {
-        addLog('🫥 空白筆劃 (忽略)');
-        clearPendingStrokeSession();
-        continue;
+      if (pendingStrokeRef.current) {
+        flushPendingStroke('before-next-token');
       }
 
       const direction = STROKE_TOKEN_TO_DIRECTION[normalizedToken];
       if (direction) {
         const targetDirection = getCurrentTargetDirection();
-        queuePendingStroke({ normalizedToken, direction, targetDirection });
+        const shouldWaitForAssist = targetDirection === 'left-down' && direction !== 'left-down';
+
+        if (shouldWaitForAssist) {
+          pendingStrokeRef.current = {
+            normalizedToken,
+            direction,
+            targetDirection,
+            receivedAt: Date.now(),
+          };
+          clearPendingStrokeTimer();
+          pendingStrokeTimerRef.current = setTimeout(() => {
+            flushPendingStroke('timeout');
+          }, 180);
+          addLog(`⏳ 等待 IMU 撇輔助: ${normalizedToken}`);
+        } else {
+          deliverStrokeDirection(direction);
+        }
       } else {
         console.warn(`無法識別指令: "${data}" (Length: ${data.length})`);
         addLog(`⚠️ 未知指令: ${data}`);
@@ -1968,7 +1722,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
   // 連接 Micro:bit
   const connectMicrobit = async () => {
-    primeAudioIfNeeded();
     try {
       setConnectionError('');
       setConnectionStep('檢查藍牙環境');
@@ -2209,9 +1962,14 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   };
 
   const fetchGameLevelData = async (profIdx, charIdx = 0) => {
+    const requestId = ++activeLevelRequestRef.current;
+    const isStaleRequest = () => activeLevelRequestRef.current !== requestId;
+
     // 檢查職業索引是否超出
     if (profIdx >= PROFESSION_LEVELS.length) {
-        setGameState(GAME_STATE.WON);
+        if (!isStaleRequest()) {
+          setGameState(GAME_STATE.WON);
+        }
         return;
     }
 
@@ -2219,10 +1977,12 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     
     // 檢查字索引是否超出 -> 完成本部首關卡
     if (charIdx >= profession.chars.length) {
-        const time = stopLevelTimer();
-        setLastLevelDuration(time);
-        markLevelCompleted(profession.id);
-        openLevelCeremony(profession);
+        if (!isStaleRequest()) {
+          const time = stopLevelTimer();
+          setLastLevelDuration(time);
+          markLevelCompleted(profession.id);
+          openLevelCeremony(profession);
+        }
         return;
     }
 
@@ -2230,18 +1990,26 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
     const char = charObj.char;
     
     setIsLoadingLevel(true);
-    setFeedback(`正在準備 ${profession.title} 的試煉...`);
+    setFeedback(`正在準備 ${profession.title} 的試煉任務...`);
 
     try {
         const data = await loadHanziData(char);
+        if (isStaleRequest()) return;
         
         // 轉換數據格式
         const strokes = data.strokes.map((svg, index) => {
            const medians = data.medians[index];
+           const totalStrokes = data.strokes.length;
            
            // 使用新的筆劃分類器
            const detectedStrokeType = classifyStroke(medians) || 'UNKNOWN';
-           const strokeType = applyStrokeTypeOverrides(profession.id, char, index, detectedStrokeType);
+           const strokeType = applyCharacterStrokeOverrides(
+               profession.id,
+               char,
+               index,
+               totalStrokes,
+               detectedStrokeType
+           );
            
            // 根據 strokeType 決定 direction (與 STROKE_MAP 對應)
            let direction = 'unknown';
@@ -2282,9 +2050,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
         if (!isValid) {
             console.warn(`字 '${char}' 未通過驗證，嘗試下一個...`);
             // 跳過這個字，試下一個
-            fetchGameLevelData(profIdx, charIdx + 1);
+            await fetchGameLevelData(profIdx, charIdx + 1);
             return; 
         }
+
+        if (isStaleRequest()) return;
 
         setGameLevelData(newLevelData);
         
@@ -2299,33 +2069,36 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
         setFeedbackType('info');
         
     } catch (err) {
-        console.error(err);
-        setFeedback(`關卡載入失敗: ${err.message}`);
-        setFeedbackType('error');
+        if (!isStaleRequest()) {
+          console.error(err);
+          setFeedback(`關卡載入失敗: ${err.message}`);
+          setFeedbackType('error');
+        }
     } finally {
-        setIsLoadingLevel(false);
+        if (!isStaleRequest()) {
+          setIsLoadingLevel(false);
+        }
     }
   };
 
   const startGame = () => {
-    primeAudioIfNeeded();
     clearPronunciationPreview();
     setLevelSelectCursor(levelRef.current);
-    setFeedback('請選擇想挑戰的部首關卡');
+    setFeedback('請選擇想先挑戰的職業試煉');
     setFeedbackType('info');
     setGameState(GAME_STATE.LEVEL_SELECT);
   };
 
   const startCurrentLevel = async () => {
-      primeAudioIfNeeded();
       clearPronunciationPreview();
+      const currentLevel = levelRef.current;
       setGameState(GAME_STATE.CHAR_PREVIEW);
       setTimeLeft(90);
       setCurrentCharIndex(0);
       setCurrentStrokeIndex(0);
       setCompletedStrokes([]);
       startLevelTimer();
-      await fetchGameLevelData(level, 0);
+      await fetchGameLevelData(currentLevel, 0);
   };
 
   const handleNextLevel = () => {
@@ -2339,16 +2112,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
           case 'fire': return { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-800', highlight: 'text-red-600', icon: '🔥', shadow: 'shadow-red-500/20' };
           case 'speech': return { bg: 'bg-indigo-100', border: 'border-indigo-400', text: 'text-indigo-800', highlight: 'text-indigo-600', icon: '🖌️', shadow: 'shadow-indigo-500/20' };
           default: return { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-700', highlight: 'text-slate-600', icon: '❓', shadow: 'shadow-slate-500/20' };
-      }
-  };
-
-  const getToolBadgeTheme = (profId) => {
-      switch(profId) {
-          case 'wood': return 'bg-amber-200 border-amber-500 text-amber-900';
-          case 'grain': return 'bg-green-200 border-green-500 text-green-900';
-          case 'fire': return 'bg-rose-200 border-rose-500 text-rose-900';
-          case 'speech': return 'bg-indigo-200 border-indigo-500 text-indigo-900';
-          default: return 'bg-slate-200 border-slate-400 text-slate-800';
       }
   };
 
@@ -2466,7 +2229,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       <div className={`relative w-full max-w-[80vh] aspect-square bg-[#fdfbf7] rounded-xl shadow-2xl border-4 overflow-hidden mx-auto mt-2 font-kai cursor-crosshair ${profTheme.border} ${profTheme.shadow}`}>
         {/* 1. 背景大字 (Shadow Character) - 淺灰色 */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-             <span className="text-[380px] font-kai text-slate-200 opacity-60" style={{ fontFamily: '"KaiTi", "Kaiti SC", "STKaiti", serif' }}>
+             <span className="text-[380px] font-kai text-slate-200 opacity-60" style={{ fontFamily: '"Free HK Kai", "DFKai-SB", "KaiTi", "標楷體", "TW-Kai", "BiauKai", "Kaiti SC", "STKaiti", serif' }}>
                  {currentChar.char}
              </span>
         </div>
@@ -2540,8 +2303,6 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                             gameLevelData && gameLevelData.profession.id === 'speech' ? <Icons.Brush size={24} /> :
                            <Icons.Hammer size={24} />;
 
-           const toolBadgeTheme = getToolBadgeTheme(gameLevelData?.profession?.id);
-
            return (
             <div 
               className={`absolute ${isAnimating ? '' : 'transition-all duration-500'}`}
@@ -2551,7 +2312,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                 transform: 'translate(-50%, -50%)',
               }}
             >
-               <div className={`p-2 rounded-full shadow-lg border-2 ${toolBadgeTheme}`}>
+               <div className={`text-white p-2 rounded-full shadow-lg border-2 border-white ${profTheme.highlight.replace('text-', 'bg-')}`}>
                   {profIcon}
                </div>
             </div>
@@ -2597,7 +2358,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
   const activeFxTheme = getProfessionFxTheme(activeProfessionId);
 
   return (
-    <div className={`min-h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center paper-bg`}>
+    <div className={`min-h-screen bg-amber-50 text-slate-800 font-sans flex flex-col items-center bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]`}>
       
       <header className="w-full max-w-md flex justify-between items-center p-4 shrink-0 z-50">
         <h1 className="text-2xl font-bold flex items-center gap-2 text-amber-700 font-kai drop-shadow-sm">
@@ -2613,14 +2374,27 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                 <span className="font-bold">{batteryLevel}%</span>
              </div>
           )}
-          {ENABLE_DEBUG_UI ? (
-            <button
-              onClick={() => window.location.assign('/debug')}
-              className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
-            >
-              調試
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={onToggleMusic}
+            className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm border transition-colors ${
+              musicEnabled
+                ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                : 'bg-slate-200 text-slate-600 border-slate-300 hover:bg-slate-300'
+            }`}
+            aria-pressed={musicEnabled}
+            aria-label={musicEnabled ? '關閉背景音樂' : '開啟背景音樂'}
+            title={musicEnabled ? '關閉背景音樂' : '開啟背景音樂'}
+          >
+            {musicEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+            <span>{musicEnabled ? '音樂開' : '音樂關'}</span>
+          </button>
+          <button
+            onClick={() => window.location.assign('/debug')}
+            className="text-xs px-3 py-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm"
+          >
+            調試
+          </button>
           <div className={`text-sm px-3 py-1 rounded-full flex items-center gap-2 shadow-sm ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
             <Bluetooth size={14} className={isConnected ? "text-green-600" : "text-slate-400"} /> 
             <span>{isConnected ? '已連接' : '未連接'}</span>
@@ -2669,14 +2443,15 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                   <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl border-l-8 border-amber-500 text-left transform transition-all hover:scale-[1.02] relative overflow-hidden">
                       <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none"><Award size={150} /></div>
                       <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
-                          <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：百變工具體驗營
+                          <span className="text-3xl bg-amber-100 p-2 rounded-lg">🏆</span> 行行出狀元：狀元試煉場
                       </h2>
                       <p className="text-slate-600 leading-relaxed font-kai text-xl">
-                          俗話說「行行出狀元」，只要掌握手中的工具，你也能成為該行業的狀元！<br/>
+                          想成為狀元，先要通過試煉。<br/>
                           你的 <span className="text-blue-600 font-bold bg-blue-50 px-2 rounded border border-blue-200">Micro:bit</span> 就是一把「百變工具」。
                           <br/><br/>
-                          在木工坊它是<span className="text-amber-600 font-bold">鐵鎚</span>，在廚房它是<span className="text-red-500 font-bold">鍋鏟</span>。
-                          快來揮動工具體驗各行技藝，收集屬於你的狀元勳章吧！✨
+                          你會前往木工坊、田園、廚房和書院，體驗不同職業並完成任務；每次過關都會掉落一件狀元帽配件，還會保留對應的徽章。
+                          <br/><br/>
+                          集齊四界配件後，就能親手合成狀元帽，正式成為小小狀元！✨
                       </p>
                   </div>
               </div>
@@ -2689,7 +2464,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
                   <div className="space-y-8 relative z-10">
                       <div className="text-center mb-4">
-                          <h3 className="text-xl font-bold text-slate-500 font-kai tracking-widest">準備好上工了嗎？</h3>
+                          <h3 className="text-xl font-bold text-slate-500 font-kai tracking-widest">準備開始狀元試煉了嗎？</h3>
                       </div>
 
                       <div className="flex flex-col gap-4 w-full">
@@ -2717,11 +2492,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                         <button 
                           onClick={connectMicrobit}
                           disabled={bleSupport.status === 'loading'}
-                          className={`w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800 ${
-                            gameState === GAME_STATE.MENU && !isConnected && menuButtonCursor === 0
-                              ? 'ring-4 ring-offset-4 ring-blue-300 scale-[1.02]'
-                              : ''
-                          }`}
+                          className="w-full group relative px-8 py-6 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-2xl font-bold rounded-2xl shadow-xl shadow-blue-200/50 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4 border-b-4 border-blue-800"
                         >
                           <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                           <Bluetooth size={32} className="animate-pulse" /> 
@@ -2764,11 +2535,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
 
                         <button 
                            onClick={startGame}
-                           className={`w-full py-4 bg-white hover:bg-amber-50 text-slate-500 hover:text-amber-600 font-bold rounded-2xl border-2 border-slate-200 hover:border-amber-200 transition-all hover:shadow-md flex items-center justify-center gap-2 group ${
-                             gameState === GAME_STATE.MENU && !isConnected && menuButtonCursor === 1
-                               ? 'ring-4 ring-offset-4 ring-amber-300 border-amber-300 shadow-lg text-amber-700'
-                               : ''
-                           }`}
+                           className="w-full py-4 bg-white hover:bg-amber-50 text-slate-500 hover:text-amber-600 font-bold rounded-2xl border-2 border-slate-200 hover:border-amber-200 transition-all hover:shadow-md flex items-center justify-center gap-2 group"
                         >
                            <span className="group-hover:scale-110 transition-transform">🚀</span>
                            <span className="text-lg">跳過連接，前往選關</span>
@@ -2816,11 +2583,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
               <div className="flex flex-col gap-3">
                 <button 
                   onClick={startGame}
-                  className={`w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-2xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-200 border-b-4 border-orange-700 ${
-                    gameState === GAME_STATE.MENU && isConnected && menuButtonCursor === 0
-                      ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]'
-                      : ''
-                  }`}
+                  className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-2xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-200 border-b-4 border-orange-700"
                 >
                   <Play size={28} fill="currentColor" /> 
                   選擇部首關卡
@@ -2829,11 +2592,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
               
               <button 
                  onClick={onDisconnected}
-                 className={`mt-6 text-sm flex items-center justify-center gap-2 transition-colors ${
-                   gameState === GAME_STATE.MENU && isConnected && menuButtonCursor === 1
-                     ? 'text-red-500 font-bold underline underline-offset-4'
-                     : 'text-slate-400 hover:text-red-400'
-                 }`}
+                 className="mt-6 text-slate-400 hover:text-red-400 text-sm flex items-center justify-center gap-2 transition-colors"
               >
                  斷開連接
               </button>
@@ -2847,9 +2606,9 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
           <div className="bg-white/85 backdrop-blur-md p-6 md:p-8 rounded-[2rem] shadow-xl border-4 border-white">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <div className="text-sm font-bold tracking-[0.3em] text-amber-600 mb-2">部首選關</div>
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-800 font-kai">選擇想挑戰的部首關卡</h2>
-                <p className="text-slate-500 mt-2">可自由挑戰任一部首，系統會保留通關進度與每關生字數量。</p>
+                <div className="text-sm font-bold tracking-[0.3em] text-amber-600 mb-2">職業試煉</div>
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-800 font-kai">選擇想先體驗的職業試煉</h2>
+                <p className="text-slate-500 mt-2">可自由進入任一職業世界，系統會保留通關進度、徽章與已收集的狀元帽配件。</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <div className="px-4 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 font-bold">
@@ -2857,11 +2616,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
                 </div>
                 {isConnected && (
                   <div className="px-4 py-2 rounded-2xl bg-blue-50 border border-blue-200 text-blue-800 font-bold">
-                    P14 雙擊切換預選 · 單擊確認
+                    A 切換關卡 · B 進入 · A+B 返回
                   </div>
                 )}
                 <button
-                  onClick={() => setGameState(GAME_STATE.MENU)}
+                  onClick={returnToMenu}
                   className="px-4 py-2 rounded-2xl bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 font-bold"
                 >
                   返回首頁
@@ -2913,7 +2672,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       {gameState === GAME_STATE.TEST && (
          <div className="w-full max-w-md space-y-4 animate-fade-in">
              <div className="flex items-center gap-2 mb-4">
-                <button onClick={() => setGameState(GAME_STATE.MENU)} className="p-2 hover:bg-slate-200 rounded-full text-slate-600">
+                <button onClick={returnToMenu} className="p-2 hover:bg-slate-200 rounded-full text-slate-600">
                     <RotateCcw size={24} />
                 </button>
                 <h2 className="text-2xl font-bold font-kai text-slate-800">測試模式</h2>
@@ -3111,7 +2870,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
           <button
             type="button"
             onClick={skipPronunciationPreview}
-            className={`w-[min(55vw,55vh)] min-w-[260px] aspect-square rounded-[2.5rem] shadow-2xl text-center border-4 flex items-center justify-center ring-4 ring-offset-4 ring-amber-200 ${getProfessionTheme(gameLevelData?.profession?.id).bg} ${getProfessionTheme(gameLevelData?.profession?.id).border}`}
+            className={`w-[min(55vw,55vh)] min-w-[260px] aspect-square rounded-[2.5rem] shadow-2xl text-center border-4 flex items-center justify-center ${getProfessionTheme(gameLevelData?.profession?.id).bg} ${getProfessionTheme(gameLevelData?.profession?.id).border}`}
           >
             <span className="block font-kai text-slate-800 drop-shadow-sm leading-none text-[min(38vw,38vh)]">
               {isLoadingLevel || !gameLevelData ? '...' : gameLevelData.char}
@@ -3124,7 +2883,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl text-center max-w-md w-full border-4 border-amber-200 animate-bounce-in">
           <div className="mb-6 text-8xl filter drop-shadow-md">🏆</div>
           <h2 className="text-3xl font-bold mb-4 text-amber-600 font-kai">狀元及第！</h2>
-          <p className="text-slate-600 mb-8 font-kai text-lg leading-relaxed">太棒了！<br/>你已熟練掌握各行技藝，成為名副其實的行業狀元！</p>
+          <p className="text-slate-600 mb-8 font-kai text-lg leading-relaxed">太棒了！<br/>你已完成四方試煉，集齊配件做好狀元帽，正式成為小小狀元！</p>
           <div className="flex justify-center gap-4">
              <button 
               onClick={startGame}
@@ -3143,13 +2902,11 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
         totalTime={totalGameTime}
         onNext={handleNextLevel}
         onMenu={() => {
-          clearPronunciationPreview();
-          setGameState(GAME_STATE.MENU);
+          returnToMenu();
         }}
         profession={PROFESSION_LEVELS[level]}
         ceremony={levelCeremonyPayload}
         nextLabel="返回選關"
-        selectedAction={achievementButtonCursor === 0 ? 'menu' : 'next'}
       />
 
       {showCelebration && (
@@ -3228,17 +2985,13 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
             <div className="mt-auto flex flex-col sm:flex-row gap-3">
               <button 
                   onClick={startCurrentLevel}
-                  className={`flex-1 py-4 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-xl bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900 ${
-                    introButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-slate-200 scale-[1.02]' : ''
-                  }`}
+                  className={`flex-1 py-4 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all hover:scale-105 shadow-xl bg-slate-700 hover:bg-slate-600 border-b-4 border-slate-900`}
               >
                   <Play size={24} fill="currentColor" /> 開始試煉
               </button>
               <button
                   onClick={goToLevelSelect}
-                  className={`flex-1 py-4 bg-white/80 hover:bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-white/80 transition-colors ${
-                    introButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-white scale-[1.02] border-white shadow-lg' : ''
-                  }`}
+                  className="flex-1 py-4 bg-white/80 hover:bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-white/80 transition-colors"
               >
                   返回選關
               </button>
@@ -3265,6 +3018,7 @@ const GeminiApp = ({ onPulseSfx, onPrimeAudio, musicEnabled = false, onToggleMus
       </div>
       </main>
 
+      {/* 調試模式切換 */}
       <div className="fixed bottom-4 left-4 z-50">
          <button 
            onClick={() => setShowDebug(!showDebug)}

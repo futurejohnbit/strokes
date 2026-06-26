@@ -87,11 +87,11 @@ export default function ScholarCrownAssembly({ worlds, selectedWorldId }) {
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.25em] text-indigo-700">
             <Crown size={14} />
-            終局收集線
+            終局合成線
           </div>
-          <h2 className="text-3xl font-bold text-slate-800 font-kai">四關材料，最後整合成狀元冠帽</h2>
+          <h2 className="text-3xl font-bold text-slate-800 font-kai">四關配件，最後合成狀元帽</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            首頁預覽不只展示「有四關」，還要把整體收集邏輯講清楚。每畫一筆，當前世界的物件會完成更多一點；每通一關，再額外掉落一件能拼進狀元冠帽的核心配件。
+            首頁預覽不只展示「有四關」，還要把整體試煉與收集邏輯講清楚。每畫一筆，當前世界的物件會完成更多一點；每通一關，再額外掉落一件能拼進狀元帽的核心配件。
           </p>
         </div>
         <div className="rounded-[1.5rem] bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-lg">
@@ -127,7 +127,7 @@ export default function ScholarCrownAssembly({ worlds, selectedWorldId }) {
                     關卡物件：<span className="font-bold text-slate-800">{world.objectLabel}</span>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-600">
-                    掉落材料：<span className="font-bold text-slate-800">{world.rewardLabel}</span>
+                    掉落配件：<span className="font-bold text-slate-800">{world.rewardLabel}</span>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-600">
                     冠帽貢獻：<span className="font-bold text-slate-800">{world.crownContribution}</span>
@@ -146,8 +146,8 @@ export default function ScholarCrownAssembly({ worlds, selectedWorldId }) {
                 <Crown size={24} />
               </div>
               <div>
-                <div className="text-lg font-bold">狀元冠帽裝配台</div>
-                <div className="text-sm text-slate-300">各界材料將在這裡完成整合</div>
+                <div className="text-lg font-bold">狀元帽裝配台</div>
+                <div className="text-sm text-slate-300">各界配件將在這裡完成整合</div>
               </div>
             </div>
 
@@ -205,12 +205,12 @@ export default function ScholarCrownAssembly({ worlds, selectedWorldId }) {
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-amber-300 ring-1 ring-white/20">
                   <Sparkles size={24} />
                 </div>
-                <div className="mt-3 text-sm font-bold tracking-[0.25em] text-amber-100">狀元冠帽</div>
+                <div className="mt-3 text-sm font-bold tracking-[0.25em] text-amber-100">狀元帽</div>
               </div>
             </div>
 
             <div className="rounded-[1.5rem] bg-white/10 px-4 py-4 text-sm leading-6 text-slate-200 ring-1 ring-white/10">
-              設定摘要：玩家在四個職業世界內不只是過關，而是在「做工、收料、組裝」，最後把四界的技能與成果戴到頭上，正式成為小小狀元。
+              設定摘要：玩家在四個職業世界內不只是過關，而是在「試煉、收配件、組裝」，最後把四界的技能與成果戴到頭上，正式成為小小狀元。
             </div>
           </div>
         </div>

@@ -23,16 +23,16 @@ const WORLD_ENCOURAGEMENT = {
     ],
     levelCeremony: [
       {
-        title: '木部工坊大功告成！',
-        subtitle: '小木匠把骨架敲得結結實實。',
+        title: '木部工坊試煉完成！',
+        subtitle: '你替狀元帽打好了穩穩的木框骨架。',
       },
       {
-        title: '工坊掌聲響起！',
-        subtitle: '這頂冠帽的骨架，已經由你親手完成。',
+        title: '工坊配件掉落！',
+        subtitle: '木框骨架配件已由你親手完成並收入收藏。',
       },
     ],
     rewardLabel: '榫接木扣',
-    rewardSummary: '木部工坊材料已收入冠帽木框。',
+    rewardSummary: '木部工坊掉落的配件已收入狀元帽木框，徽章也一併保留。',
     rewardAccent: '工坊收成',
   },
   grain: {
@@ -57,16 +57,16 @@ const WORLD_ENCOURAGEMENT = {
     ],
     levelCeremony: [
       {
-        title: '禾部田園大豐收！',
-        subtitle: '你的節奏讓冠帽穗飾一束束完成。',
+        title: '禾部田園試煉完成！',
+        subtitle: '你把狀元帽需要的穗飾一束束編好了。',
       },
       {
-        title: '田園慶功開始！',
-        subtitle: '這一關的穗飾，已經由你親手編好。',
+        title: '田園配件掉落！',
+        subtitle: '穗飾配件已由你親手完成並收入收藏。',
       },
     ],
     rewardLabel: '冠帽穗飾',
-    rewardSummary: '禾部田園材料已收入冠帽垂掛穗飾。',
+    rewardSummary: '禾部田園掉落的配件已收入狀元帽垂掛穗飾，徽章也一併保留。',
     rewardAccent: '田園收成',
   },
   fire: {
@@ -91,16 +91,16 @@ const WORLD_ENCOURAGEMENT = {
     ],
     levelCeremony: [
       {
-        title: '火部廚房熱烈慶功！',
-        subtitle: '中央金飾已經被你鍛得亮晶晶。',
+        title: '火部廚房試煉完成！',
+        subtitle: '你把狀元帽中央的亮眼配件鍛得閃閃發光。',
       },
       {
-        title: '廚房明星就是你！',
-        subtitle: '這一關的火紋徽印，已經完成上桌。',
+        title: '廚房配件掉落！',
+        subtitle: '中央金飾配件已由你親手完成並收入收藏。',
       },
     ],
     rewardLabel: '中央金飾',
-    rewardSummary: '火部廚房材料已收入冠帽中央徽印。',
+    rewardSummary: '火部廚房掉落的配件已收入狀元帽中央徽印，徽章也一併保留。',
     rewardAccent: '廚房出鍋',
   },
   speech: {
@@ -125,16 +125,16 @@ const WORLD_ENCOURAGEMENT = {
     ],
     levelCeremony: [
       {
-        title: '言部書院傳來掌聲！',
-        subtitle: '這塊題字冠牌，已經由你親手寫成。',
+        title: '言部書院試煉完成！',
+        subtitle: '你親手寫好了狀元帽最重要的題字冠牌。',
       },
       {
-        title: '書院小狀元就是你！',
-        subtitle: '墨題匾額已經穩穩收入冠帽正面。',
+        title: '書院配件掉落！',
+        subtitle: '墨題匾額配件已由你親手完成並收入收藏。',
       },
     ],
     rewardLabel: '墨題匾額',
-    rewardSummary: '言部書院材料已收入冠帽正面題字冠牌。',
+    rewardSummary: '言部書院掉落的配件已收入狀元帽正面題字冠牌，徽章也一併保留。',
     rewardAccent: '書院收卷',
   },
 };
@@ -171,8 +171,8 @@ export function pickLevelCeremonyPraise(worldId, stamp = 0) {
   const pack = getWorldPack(worldId);
   return (
     pickFromList(pack.levelCeremony, stamp) || {
-      title: '通關成功！',
-      subtitle: '新的作品已經穩穩收入收藏。',
+      title: '試煉完成！',
+      subtitle: '新的狀元帽配件已穩穩收入收藏。',
     }
   );
 }

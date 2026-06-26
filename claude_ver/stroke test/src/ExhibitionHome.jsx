@@ -5,18 +5,18 @@ import { FREE_MUSIC_TRACK } from './utils/themeAudio';
 const LANDING_STEPS = [
   {
     id: 'listen',
-    title: '先聽故事',
-    description: '你會知道自己要帶著神筆去幫忙，把四個世界裡亂掉的字一筆一筆修好。',
+    title: '先聽主線',
+    description: '你會知道想成為狀元，先要進入四個世界接受試煉，完成各自的職業任務。',
   },
   {
     id: 'write',
     title: '再跟著揮筆',
-    description: '拿起 Micro:bit 神筆，照著畫面提示做出正確方向，角色就會一起完成任務。',
+    description: '拿起 Micro:bit 神筆，照著畫面提示做出正確方向，角色就會跟著完成當前試煉任務。',
   },
   {
     id: 'collect',
-    title: '最後收下成果',
-    description: '每次過關都會拿到新材料，全部集齊後，就能完成你的狀元冠帽。',
+    title: '最後收下配件',
+    description: '每次過關都會掉落新的狀元帽配件，全部集齊後，就能完成你的狀元帽。',
   },
 ];
 
@@ -45,11 +45,11 @@ export default function ExhibitionHome({ navigate, onPulseSfx, musicEnabled, onT
               <h1 className="text-4xl font-black leading-tight text-slate-900 md:text-6xl font-kai">
                 神筆出發，
                 <br />
-                幫四個世界把字寫回來
+                先試煉，再成為狀元
               </h1>
               <p className="mx-auto max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
                 小朋友會拿著神筆走進展場，先聽懂一個很簡單的故事：
-                有些世界的字變亂了，只要照著提示把筆劃寫對，就能幫大家修好工具、完成任務，最後把收集到的材料變成一頂狀元冠帽。
+                想成為狀元，先要到木工坊、田園、廚房和書院接受試煉；只要照著提示把筆劃寫對，就能體驗不同職業、完成任務，並把掉落的配件組裝成狀元帽。
               </p>
             </div>
 

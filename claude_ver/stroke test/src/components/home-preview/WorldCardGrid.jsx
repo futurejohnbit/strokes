@@ -20,11 +20,11 @@ export default function WorldCardGrid({
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <div className="mb-2 inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-bold uppercase tracking-[0.25em] text-white">
-            四大職業世界
+            四大職業試煉
           </div>
-          <h2 className="text-3xl font-bold text-slate-800 font-kai">先看世界，再決定怎樣上工</h2>
+          <h2 className="text-3xl font-bold text-slate-800 font-kai">先看試煉世界，再決定先去哪裡歷練</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            新版首頁會先讓使用者看見每個世界的主題、工具、材料與收集目標，而不是一打開就只看到連接藍牙。
+            新版首頁會先讓使用者看見每個世界的主題、工具、掉落配件與最終目標，而不是一打開就只看到連接藍牙。
           </p>
         </div>
         <button
@@ -85,7 +85,7 @@ export default function WorldCardGrid({
                     本關物件：<span className="font-bold text-slate-800">{world.objectLabel}</span>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-3 py-2 text-slate-600">
-                    收集材料：<span className="font-bold text-slate-800">{world.rewardLabel}</span>
+                    掉落配件：<span className="font-bold text-slate-800">{world.rewardLabel}</span>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-3 py-2 text-slate-600">
                     最終貢獻：<span className="font-bold text-slate-800">{world.crownContribution}</span>

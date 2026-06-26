@@ -56,7 +56,7 @@ export default function BadgeGallery({ worlds, selectedWorldId, onSelectWorld })
                 <div className="text-lg font-bold text-slate-800 font-kai">{world.title}</div>
                 <div className="mt-1 text-sm text-slate-500">{world.badgeTitle}</div>
                 <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
-                  解鎖條件：完成 {world.title} 後獲得專屬徽章，並點亮冠帽的一個關鍵配件。
+                  解鎖條件：完成 {world.title} 後獲得專屬徽章，並點亮狀元帽的一個關鍵配件。
                 </div>
               </div>
             </button>

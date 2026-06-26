@@ -7,7 +7,7 @@ export const EXHIBITION_STEPS = [
   {
     id: 'discover',
     title: '先看世界',
-    description: '展場首屏先說明四大職業世界與狀元冠帽主線，三秒內看懂主題。',
+    description: '展場首屏先說明四大職業試煉與狀元帽主線，三秒內看懂主題。',
   },
   {
     id: 'write',
@@ -16,8 +16,8 @@ export const EXHIBITION_STEPS = [
   },
   {
     id: 'collect',
-    title: '最後收材料',
-    description: '每過一關掉落配件，四界材料匯聚後，完成最終狀元冠帽合成。',
+    title: '最後收配件',
+    description: '每過一關都會掉落配件，四界配件匯聚後，完成最終狀元帽合成。',
   },
 ];
 
@@ -27,7 +27,7 @@ export const HOME_V2_WORLDS = [
     radical: '木',
     radicalLabel: '木部',
     title: '木部工坊',
-    description: '從量尺、落橫到敲釘，把冠帽的木框骨架慢慢做出來。',
+    description: '從量尺、落橫到敲釘，完成狀元帽需要的木框骨架配件。',
     heroSummary: '木工角色揮鎚敲擊，木框一節一節被打造成形。',
     image: imgCarpenter,
     background: '/level-bg/wood.png',
@@ -54,7 +54,7 @@ export const HOME_V2_WORLDS = [
     radical: '禾',
     radicalLabel: '禾部',
     title: '禾部田園',
-    description: '跟著穗浪與節奏，把冠帽上垂落的金穗流蘇一層層編好。',
+    description: '跟著穗浪與節奏，把狀元帽上垂落的金穗流蘇一層層編好。',
     heroSummary: '農夫揮鐮收割，金穗與流蘇跟著節奏擺動。',
     image: imgFarmer,
     background: '/level-bg/grain.png',
@@ -81,7 +81,7 @@ export const HOME_V2_WORLDS = [
     radical: '火',
     radicalLabel: '火部',
     title: '火部廚房',
-    description: '在火候與鍛打間，把冠帽正中央最醒目的金飾徽印鍛得發亮。',
+    description: '在火候與鍛打間，把狀元帽正中央最醒目的金飾徽印鍛得發亮。',
     heroSummary: '廚師翻炒火紋金飾，鍋鏟起落間伴隨火光與亮片。',
     image: imgChef,
     background: '/level-bg/fire.png',
@@ -108,7 +108,7 @@ export const HOME_V2_WORLDS = [
     radical: '言',
     radicalLabel: '言部',
     title: '言部書院',
-    description: '在書院裡落墨寫字，讓冠帽最終擁有屬於狀元的題字與冠牌。',
+    description: '在書院裡落墨寫字，讓狀元帽最終擁有屬於狀元的題字與冠牌。',
     heroSummary: '書生提筆揮毫，墨痕隨進度延展，冠牌最後落定。',
     image: imgScholar,
     background: '/level-bg/speech.png',

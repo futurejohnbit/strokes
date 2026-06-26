@@ -156,7 +156,7 @@ export default function PreviewDemoStage({ world, onPulseSfx }) {
           </div>
           <h2 className="text-3xl font-bold text-slate-800 font-kai">先看 20 秒，就知道怎樣玩</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            這一區會自動循環示範：選世界、看筆劃、物件逐步完成、關卡掉落材料。首頁不用連裝置，也能先看懂玩法。
+            這一區會自動循環示範：選世界、看筆劃、物件逐步完成、關卡掉落配件。首頁不用連裝置，也能先看懂玩法。
           </p>
         </div>
         <div className={`inline-flex self-start rounded-full px-4 py-2 text-sm font-bold ${world.chipClass}`}>
@@ -310,12 +310,12 @@ export default function PreviewDemoStage({ world, onPulseSfx }) {
                   <Sparkles size={18} />
                 </div>
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-[0.2em]">關卡掉落</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.2em]">試煉掉落</div>
                   <div className="mt-1 font-bold">
-                    {showReward ? world.rewardLabel : '完成關卡後出現'}
+                    {showReward ? world.rewardLabel : '完成試煉後出現'}
                   </div>
                   <div className="mt-1 text-xs opacity-80">
-                    {showReward ? '先閃光，再彈出，最後落定到材料欄。' : '等待角色完成最後一拍。'}
+                    {showReward ? '先閃光，再彈出，最後落定到配件欄。' : '等待角色完成最後一拍。'}
                   </div>
                 </div>
               </div>

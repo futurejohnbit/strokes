@@ -71,9 +71,9 @@ const AchievementModal = ({
   const tone = getToneClasses(profession?.color);
   const title = ceremony?.title || `${profession?.title || '關卡'}挑戰成功！`;
   const subtitle = ceremony?.subtitle || '恭喜你完成了本次試煉';
-  const rewardLabel = ceremony?.rewardLabel || '狀元材料';
+  const rewardLabel = ceremony?.rewardLabel || '狀元帽配件';
   const rewardAccent = ceremony?.rewardAccent || '本次收成';
-  const rewardSummary = ceremony?.rewardSummary || '新的材料已順利收入你的收藏。';
+  const rewardSummary = ceremony?.rewardSummary || '新的狀元帽配件已順利收入收藏，徽章也會一併保留。';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4 sm:p-5">
