@@ -4,7 +4,7 @@
 
 :root {
   --font-body: 'FangSong', 'FangSong_GB2312', '仿宋', 'STFangsong', serif;
-  --font-title: 'KaiFallback', 'DFKai-SB', 'KaiTi', '標楷體', 'TW-Kai', 'BiauKai', serif;
+  --font-title: 'DFKai-SB', 'KaiTi', '標楷體', 'TW-Kai', 'BiauKai', 'KaiFallback', serif;
 }
 
 html,
@@ -44,6 +44,7 @@ body {
     url('/fonts/Iansui-Regular.ttf') format('truetype'),
     local('DFKai-SB'),
     local('KaiTi'),
+    local('標楷體'),
     local('BiauKai'),
     local('TW-Kai');
   font-style: normal;

@@ -763,6 +763,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   const [gameLevelData, setGameLevelData] = useState(null);
   const [isLoadingLevel, setIsLoadingLevel] = useState(false);
   const [completedLevels, setCompletedLevels] = useState({});
+  const completedLevelCount = PROFESSION_LEVELS.filter((item) => completedLevels[item.id]).length;
+  const crownAssemblyUnlocked = PROFESSION_LEVELS.length > 0 && completedLevelCount === PROFESSION_LEVELS.length;
+  const crownAssemblyCursorIndex = PROFESSION_LEVELS.length;
   const [showCelebration, setShowCelebration] = useState(false);
   const [wordCelebration, setWordCelebration] = useState(null);
   const [levelCeremonyPayload, setLevelCeremonyPayload] = useState(null);
@@ -1350,6 +1353,28 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
      setGameState(GAME_STATE.LEVEL_INTRO);
   };
 
+  const openScholarCrownAssembly = () => {
+     clearPronunciationPreview();
+     setFeedback('四界配件已集齊，開始合成狀元帽。');
+     setFeedbackType('success');
+     setGameState(GAME_STATE.WON);
+  };
+
+  const activateLevelSelectCursor = (cursorValue) => {
+     if (crownAssemblyUnlocked && cursorValue === crownAssemblyCursorIndex) {
+       openScholarCrownAssembly();
+       return;
+     }
+
+     if (!PROFESSION_LEVELS.length) return;
+
+     const safeIndex = Math.min(
+       Math.max(Number.isFinite(cursorValue) ? cursorValue : 0, 0),
+       PROFESSION_LEVELS.length - 1
+     );
+     selectLevel(safeIndex);
+  };
+
   const skipPronunciationPreview = () => {
      clearPronunciationPreview();
      setGameState(GAME_STATE.PLAYING);
@@ -1589,11 +1614,16 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   };
 
   function cycleLevelSelection(step = 1) {
-    const total = PROFESSION_LEVELS.length;
+    const total = PROFESSION_LEVELS.length + (crownAssemblyUnlocked ? 1 : 0);
     if (!total) return;
     setLevelSelectCursor((prev) => {
       const base = Number.isFinite(prev) ? prev : 0;
       const next = (base + step + total) % total;
+      if (crownAssemblyUnlocked && next === crownAssemblyCursorIndex) {
+        setFeedback('目前選擇：合成狀元帽');
+        setFeedbackType('info');
+        return next;
+      }
       const nextLevel = PROFESSION_LEVELS[next];
       setFeedback(`目前選擇：${nextLevel.title}`);
       setFeedbackType('info');
@@ -1684,7 +1714,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
 
     if (currentGameState === GAME_STATE.LEVEL_SELECT) {
       playPositiveSfx('reward');
-      selectLevel(levelSelectCursorRef.current);
+      activateLevelSelectCursor(levelSelectCursorRef.current);
       return;
     }
 
@@ -1770,7 +1800,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       }
       if (buttonKind === 'B') {
         playPositiveSfx('reward');
-        selectLevel(levelSelectCursorRef.current);
+        activateLevelSelectCursor(levelSelectCursorRef.current);
         return;
       }
       if (buttonKind === 'AB') {
@@ -2373,15 +2403,20 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
 
   const handleNextLevel = () => {
       goToLevelSelect();
+      if (crownAssemblyUnlocked) {
+        setLevelSelectCursor(crownAssemblyCursorIndex);
+        setFeedback('四界配件已集齊，按下「合成狀元帽」即可進入最終視窗。');
+        setFeedbackType('success');
+      }
   };
 
   const getProfessionTheme = (profId) => {
       switch(profId) {
-          case 'wood': return { bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-800', highlight: 'text-amber-600', icon: '🔨', shadow: 'shadow-amber-500/20' };
-          case 'grain': return { bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-800', highlight: 'text-green-600', icon: '🌾', shadow: 'shadow-green-500/20' };
-          case 'fire': return { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-800', highlight: 'text-red-600', icon: '🔥', shadow: 'shadow-red-500/20' };
-          case 'speech': return { bg: 'bg-indigo-100', border: 'border-indigo-400', text: 'text-indigo-800', highlight: 'text-indigo-600', icon: '🖌️', shadow: 'shadow-indigo-500/20' };
-          default: return { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-700', highlight: 'text-slate-600', icon: '❓', shadow: 'shadow-slate-500/20' };
+          case 'wood': return { bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-800', highlight: 'text-amber-600', icon: '🔨', shadow: 'shadow-amber-500/20', brushFill: '#d97706', brushStroke: '#92400e' };
+          case 'grain': return { bg: 'bg-green-100', border: 'border-green-400', text: 'text-green-800', highlight: 'text-green-600', icon: '🌾', shadow: 'shadow-green-500/20', brushFill: '#16a34a', brushStroke: '#166534' };
+          case 'fire': return { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-800', highlight: 'text-red-600', icon: '🔥', shadow: 'shadow-red-500/20', brushFill: '#ef4444', brushStroke: '#b91c1c' };
+          case 'speech': return { bg: 'bg-indigo-100', border: 'border-indigo-400', text: 'text-indigo-800', highlight: 'text-indigo-600', icon: '🖌️', shadow: 'shadow-indigo-500/20', brushFill: '#4f46e5', brushStroke: '#3730a3' };
+          default: return { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-700', highlight: 'text-slate-600', icon: '❓', shadow: 'shadow-slate-500/20', brushFill: '#475569', brushStroke: '#334155' };
       }
   };
 
@@ -2499,7 +2534,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       <div className={`relative w-full max-w-[80vh] aspect-square bg-[#fdfbf7] rounded-xl shadow-2xl border-4 overflow-hidden mx-auto mt-2 font-kai cursor-crosshair ${profTheme.border} ${profTheme.shadow}`}>
         {/* 1. 背景大字 (Shadow Character) - 淺灰色 */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-             <span className="text-[380px] font-kai text-slate-200 opacity-60" style={{ fontFamily: '"KaiFallback", "DFKai-SB", "KaiTi", "標楷體", "TW-Kai", "BiauKai", "Kaiti SC", "STKaiti", serif' }}>
+             <span className="text-[380px] font-kai text-slate-200 opacity-60" style={{ fontFamily: '"DFKai-SB", "KaiTi", "標楷體", "TW-Kai", "BiauKai", "KaiFallback", "Kaiti SC", "STKaiti", serif' }}>
                  {currentChar.char}
              </span>
         </div>
@@ -2532,8 +2567,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                  {/* 筆劃輪廓 (淡色填充) */}
                  <path 
                   d={currentStroke.svg}
-                  fill="rgba(255, 165, 0, 0.2)" 
-                  stroke="rgba(255, 165, 0, 0.5)"
+                  fill={profTheme.brushFill}
+                  stroke={profTheme.brushStroke}
                   strokeWidth="5"
                   className="animate-pulse"
                 />
@@ -2949,7 +2984,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
               </div>
               <div className="flex flex-wrap gap-3">
                 <div className="px-4 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 font-bold">
-                  已通關 {PROFESSION_LEVELS.filter((item) => completedLevels[item.id]).length} / {PROFESSION_LEVELS.length}
+                  已通關 {completedLevelCount} / {PROFESSION_LEVELS.length}
                 </div>
                 {isConnected && (
                   <div className="px-4 py-2 rounded-2xl bg-blue-50 border border-blue-200 text-blue-800 font-bold">
@@ -3003,6 +3038,30 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
               );
             })}
           </div>
+
+          {crownAssemblyUnlocked && (
+            <button
+              onClick={openScholarCrownAssembly}
+              className={`w-full rounded-[2rem] border-2 border-amber-300 bg-gradient-to-r from-amber-100 via-yellow-50 to-orange-100 px-6 py-5 text-left shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${
+                levelSelectCursor === crownAssemblyCursorIndex ? 'ring-4 ring-amber-300/80 -translate-y-0.5 shadow-xl' : ''
+              }`}
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-bold tracking-[0.2em] text-amber-700">
+                    🎓 最終合成
+                  </div>
+                  <h3 className="mt-3 text-2xl font-bold text-slate-800 font-kai">合成狀元帽</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    四界配件已收齊，現在可以進入最終視窗，把木框骨架、稻穗穗飾、星光配件與題字冠牌正式組裝完成。
+                  </p>
+                </div>
+                <div className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-md">
+                  進入最終視窗
+                </div>
+              </div>
+            </button>
+          )}
         </div>
       )}
 
