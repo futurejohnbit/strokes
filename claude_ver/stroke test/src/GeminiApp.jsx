@@ -29,10 +29,13 @@ import imgFarmer from './assets/images/farmer.png';
 import imgChef from './assets/images/chef.png';
 import imgScholar from './assets/images/scholar.png';
 
+const ENABLE_DEBUG_UI = import.meta.env.DEV;
+
 // 遊戲常數與資料設定
 // 遊戲狀態常數
   const GAME_STATE = {
     MENU: 'MENU',
+    CONNECTED_LOBBY: 'CONNECTED_LOBBY',
     LEVEL_SELECT: 'LEVEL_SELECT',
     PLAYING: 'PLAYING',
     CHAR_PREVIEW: 'CHAR_PREVIEW',
@@ -657,6 +660,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   const [gameState, setGameState] = useState(GAME_STATE.MENU);
   const [level, setLevel] = useState(0); // 這裡的 level 代表 "PROFESSION_LEVELS" 的索引
   const [levelSelectCursor, setLevelSelectCursor] = useState(0);
+  const [menuButtonCursor, setMenuButtonCursor] = useState(0);
+  const [introButtonCursor, setIntroButtonCursor] = useState(0);
+  const [achievementButtonCursor, setAchievementButtonCursor] = useState(1);
   const [currentCharIndex, setCurrentCharIndex] = useState(0); // 該職業中的第幾個字
   const [currentStrokeIndex, setCurrentStrokeIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60); // 倒計時 (秒)
@@ -696,7 +702,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
 
   // 調試日誌狀態
   const [debugLogs, setDebugLogs] = useState([]);
-  const [showDebug, setShowDebug] = useState(true); // 默認開啟調試模式
+  const [showDebug, setShowDebug] = useState(false);
   const [bleSupport, setBleSupport] = useState(getBleSupportSnapshot());
   const [connectionStep, setConnectionStep] = useState('');
 
@@ -902,7 +908,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   }, []);
 
   useEffect(() => {
-    onAudioSceneChange?.(gameState === GAME_STATE.MENU ? 'menu' : 'game');
+    onAudioSceneChange?.(
+      gameState === GAME_STATE.MENU || gameState === GAME_STATE.CONNECTED_LOBBY ? 'menu' : 'game'
+    );
   }, [gameState, onAudioSceneChange]);
 
   // 使用 Ref 來解決 React Event Listener Closure Trap
@@ -913,6 +921,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   const timeLeftRef = useRef(timeLeft);
   const currentCharIndexRef = useRef(currentCharIndex);
   const levelSelectCursorRef = useRef(levelSelectCursor);
+  const menuButtonCursorRef = useRef(menuButtonCursor);
+  const introButtonCursorRef = useRef(introButtonCursor);
+  const achievementButtonCursorRef = useRef(achievementButtonCursor);
   const isConnectedRef = useRef(isConnected);
   
   // 新增：防抖與過渡狀態 Ref
@@ -985,10 +996,27 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     timeLeftRef.current = timeLeft;
     currentCharIndexRef.current = currentCharIndex;
     levelSelectCursorRef.current = levelSelectCursor;
+    menuButtonCursorRef.current = menuButtonCursor;
+    introButtonCursorRef.current = introButtonCursor;
+    achievementButtonCursorRef.current = achievementButtonCursor;
     gameLevelDataRef.current = gameLevelData;
     testCharacterRef.current = testCharacter;
     isConnectedRef.current = isConnected;
-  }, [gameState, level, currentStrokeIndex, completedStrokes, timeLeft, currentCharIndex, levelSelectCursor, gameLevelData, testCharacter, isConnected]);
+  }, [gameState, level, currentStrokeIndex, completedStrokes, timeLeft, currentCharIndex, levelSelectCursor, menuButtonCursor, introButtonCursor, achievementButtonCursor, gameLevelData, testCharacter, isConnected]);
+
+  useEffect(() => {
+    if (gameState === GAME_STATE.MENU || gameState === GAME_STATE.CONNECTED_LOBBY) {
+      setMenuButtonCursor(0);
+      return;
+    }
+    if (gameState === GAME_STATE.LEVEL_INTRO) {
+      setIntroButtonCursor(0);
+      return;
+    }
+    if (gameState === GAME_STATE.ACHIEVEMENT) {
+      setAchievementButtonCursor(1);
+    }
+  }, [gameState]);
 
   const analyzeStrokeDirection = (medians) => {
       if (!medians || medians.length < 2) return 'unknown';
@@ -1489,8 +1517,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   function cycleMenuSelection() {
     setMenuButtonCursor((prev) => {
       const next = (prev + 1) % 2;
-      const label = isConnectedRef.current
-        ? (next === 0 ? '開始試煉' : '斷開目前連接')
+      const label = gameStateRef.current === GAME_STATE.CONNECTED_LOBBY
+        ? (next === 0 ? '開始試煉' : '返回主頁')
         : (next === 0 ? '連結Micro:bit' : '跳過連接，前往選關');
       setFeedback(`預選：${label}`);
       setFeedbackType('info');
@@ -1519,7 +1547,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   function advanceMicrobitSelection() {
     const currentGameState = gameStateRef.current;
 
-    if (currentGameState === GAME_STATE.MENU) {
+    if (currentGameState === GAME_STATE.MENU || currentGameState === GAME_STATE.CONNECTED_LOBBY) {
       playPositiveSfx('step');
       cycleMenuSelection();
       return;
@@ -1548,21 +1576,21 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     const currentGameState = gameStateRef.current;
 
     if (currentGameState === GAME_STATE.MENU) {
-      if (isConnectedRef.current) {
-        if (menuButtonCursorRef.current === 0) {
-          playPositiveSfx('reward');
-          startGame();
-        } else {
-          onDisconnected();
-        }
-        return;
-      }
-
       if (menuButtonCursorRef.current === 0) {
         connectMicrobit();
       } else {
         playPositiveSfx('reward');
         startGame();
+      }
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.CONNECTED_LOBBY) {
+      playPositiveSfx('reward');
+      if (menuButtonCursorRef.current === 0) {
+        startGame();
+      } else {
+        returnToMenu();
       }
       return;
     }
@@ -1626,6 +1654,23 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       if (buttonKind === 'A' || buttonKind === 'B') {
         playPositiveSfx('step');
         startGame();
+      }
+      return;
+    }
+
+    if (currentGameState === GAME_STATE.CONNECTED_LOBBY) {
+      if (buttonKind === 'A') {
+        playPositiveSfx('step');
+        cycleMenuSelection();
+        return;
+      }
+      if (buttonKind === 'B' || buttonKind === 'AB') {
+        playPositiveSfx('reward');
+        if (menuButtonCursorRef.current === 0) {
+          startGame();
+        } else {
+          returnToMenu();
+        }
       }
       return;
     }
@@ -1942,6 +1987,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       setFeedback('Micro:bit 連接成功！');
       setFeedbackType('success');
       setConnectionStep('已連接');
+      setGameState(GAME_STATE.CONNECTED_LOBBY);
       addLog('連接流程全部完成！');
 
     } catch (error) {
@@ -1966,6 +2012,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     setConnectionStep('已斷開');
     setFeedback('Micro:bit 已斷開連接');
     setFeedbackType('error');
+    if (gameStateRef.current === GAME_STATE.CONNECTED_LOBBY) {
+      setGameState(GAME_STATE.MENU);
+    }
   };
 
   // 處理鍵盤事件
@@ -2498,12 +2547,14 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             {musicEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
             <span>{musicEnabled ? '音樂開' : '音樂關'}</span>
           </button>
-          <button
-            onClick={() => window.location.assign('/debug')}
-            className="text-sm px-4 py-2 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm whitespace-nowrap shrink-0"
-          >
-            調試
-          </button>
+          {ENABLE_DEBUG_UI && (
+            <button
+              onClick={() => window.location.assign('/debug')}
+              className="text-sm px-4 py-2 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 shadow-sm whitespace-nowrap shrink-0"
+            >
+              調試
+            </button>
+          )}
           <div className={`text-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-sm whitespace-nowrap shrink-0 ${isConnected ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-slate-200 text-slate-600'}`}>
             <Bluetooth size={14} className={isConnected ? "text-green-600" : "text-slate-400"} /> 
             <span>{isConnected ? '已連接' : '未連接'}</span>
@@ -2623,32 +2674,6 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                       </div>
 
                       <div className="flex flex-col gap-4 w-full">
-                        {isConnected && (
-                          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-left shadow-sm">
-                            <div className="flex items-start gap-3">
-                              <div className="rounded-full bg-green-100 p-2 text-green-700">
-                                <Bluetooth size={18} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-bold text-green-900">Micro:bit 已連接</div>
-                                <div className="mt-1 text-sm leading-6 text-green-800">
-                                  百變工具已就緒，首頁維持不變，你可以直接開始試煉。
-                                </div>
-                                {deviceName && (
-                                  <div className="mt-2 text-xs font-semibold text-green-700/90">
-                                    已連接裝置：{deviceName}
-                                  </div>
-                                )}
-                                {connectionStep && (
-                                  <div className="mt-1 text-xs font-semibold text-green-700/80">
-                                    狀態：{connectionStep}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
                         <button
                           onClick={onToggleMusic}
                           className={`w-full rounded-2xl border px-5 py-4 text-left shadow-sm transition-all hover:-translate-y-0.5 ${
@@ -2671,22 +2696,16 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                         </button>
 
                         <button 
-                          onClick={isConnected ? startGame : connectMicrobit}
+                          onClick={connectMicrobit}
                           disabled={bleSupport.status === 'loading'}
-                          className={`w-full group relative px-8 py-6 text-white text-2xl font-bold rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-4 border-b-4 ${
-                            isConnected
-                              ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-emerald-200/50 border-green-800 hover:scale-[1.02]'
-                              : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-200/50 border-blue-800 hover:scale-[1.02]'
-                          } ${menuButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]' : ''}`}
+                          className={`w-full group relative px-8 py-6 text-white text-2xl font-bold rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-4 border-b-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-200/50 border-blue-800 hover:scale-[1.02] ${
+                            menuButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]' : ''
+                          }`}
                         >
                           <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                          {isConnected ? <Play size={32} fill="currentColor" /> : <Bluetooth size={32} className="animate-pulse" />}
+                          <Bluetooth size={32} className="animate-pulse" />
                           <span>
-                            {bleSupport.status === 'loading'
-                              ? '檢查藍牙中...'
-                              : isConnected
-                                ? '已連接，開始試煉'
-                                : '連結Micro:bit'}
+                            {bleSupport.status === 'loading' ? '檢查藍牙中...' : '連結Micro:bit'}
                           </span>
                         </button>
 
@@ -2725,15 +2744,13 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                         </div>
 
                         <button 
-                           onClick={isConnected ? onDisconnected : startGame}
-                           className={`w-full py-4 bg-white font-bold rounded-2xl border-2 transition-all hover:shadow-md flex items-center justify-center gap-2 group ${
-                             isConnected
-                               ? 'hover:bg-red-50 text-slate-500 hover:text-red-500 border-slate-200 hover:border-red-200'
-                               : 'hover:bg-amber-50 text-slate-500 hover:text-amber-600 border-slate-200 hover:border-amber-200'
-                           } ${menuButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-amber-300 shadow-lg' : ''}`}
+                           onClick={startGame}
+                           className={`w-full py-4 bg-white font-bold rounded-2xl border-2 transition-all hover:shadow-md flex items-center justify-center gap-2 group hover:bg-amber-50 text-slate-500 hover:text-amber-600 border-slate-200 hover:border-amber-200 ${
+                             menuButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-amber-300 shadow-lg text-amber-700' : ''
+                           }`}
                         >
                            <span className="group-hover:scale-110 transition-transform">🚀</span>
-                           <span className="text-lg">{isConnected ? '斷開目前連接' : '跳過連接，前往選關'}</span>
+                           <span className="text-lg">跳過連接，前往選關</span>
                         </button>
                       </div>
 
@@ -2759,6 +2776,52 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                   </div>
               </div>
             </div>
+        </div>
+      )}
+
+      {gameState === GAME_STATE.CONNECTED_LOBBY && (
+        <div className="bg-white/80 backdrop-blur-md p-8 md:p-12 rounded-[2rem] shadow-2xl text-center max-w-2xl w-full border-4 border-green-200 animate-fade-in-up">
+          <div className="mb-6 inline-flex items-center justify-center w-24 h-24 bg-green-100 rounded-full text-green-500 shadow-inner">
+            <Bluetooth size={48} />
+          </div>
+
+          <h2 className="text-4xl font-bold mb-2 text-slate-800 font-kai">連線成功</h2>
+          <p className="text-slate-500 mb-8 font-medium text-lg">百變工具已就緒，現在可以進入獨立 Lobby 開始試煉。</p>
+          {deviceName && (
+            <div className="mb-3 text-sm text-slate-500">已連接裝置：{deviceName}</div>
+          )}
+          {connectionStep && (
+            <div className="mb-6 text-xs font-semibold tracking-wide uppercase text-green-700">狀態：{connectionStep}</div>
+          )}
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={startGame}
+              className={`w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-2xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-200 border-b-4 border-orange-700 ${
+                menuButtonCursor === 0 ? 'ring-4 ring-offset-4 ring-amber-300 scale-[1.02]' : ''
+              }`}
+            >
+              <Play size={28} fill="currentColor" />
+              開始試煉
+            </button>
+
+            <button
+              onClick={returnToMenu}
+              className={`w-full py-4 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 font-bold rounded-2xl border-2 border-slate-200 transition-all hover:shadow-md flex items-center justify-center gap-2 ${
+                menuButtonCursor === 1 ? 'ring-4 ring-offset-4 ring-slate-300 shadow-lg text-slate-800' : ''
+              }`}
+            >
+              <RotateCcw size={22} />
+              返回主頁
+            </button>
+          </div>
+
+          <button
+            onClick={onDisconnected}
+            className="mt-6 text-sm text-slate-400 hover:text-red-400 flex items-center justify-center gap-2 transition-colors mx-auto"
+          >
+            斷開目前連接
+          </button>
         </div>
       )}
 
