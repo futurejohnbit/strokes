@@ -610,6 +610,11 @@ const applyCharacterStrokeOverrides = (professionId, char, strokeIndex, totalStr
         return 'PIE';
     }
 
+    // 炒的第 6 筆固定視為點。
+    if (char === '炒' && strokeIndex === 5) {
+        return 'PIE';
+    }
+
     return strokeType;
 };
 
