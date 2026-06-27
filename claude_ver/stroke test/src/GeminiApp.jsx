@@ -30,6 +30,8 @@ import imgChef from './assets/images/chef.png';
 import imgScholar from './assets/images/scholar.png';
 
 const ENABLE_DEBUG_UI = import.meta.env.DEV;
+const MICROBIT_NEXT_DEDUPE_MS = 220;
+const MICROBIT_ENTER_AFTER_NEXT_GUARD_MS = 420;
 
 // 遊戲常數與資料設定
 // 遊戲狀態常數
@@ -169,12 +171,10 @@ const STROKE_CODE_TO_TOKEN = {
   '0': 'BLANK',
   '1': 'HENG',
   '2': 'SHU',
-  '3': 'TI',
   '4': 'NA',
   '5': 'DIAN',
   '6': 'HENGPIE',
   '7': 'SHUGOU',
-  '8': 'HENGSHUGOU',
   '9': 'PIE',
   '10': 'HENGZHE',
 };
@@ -187,10 +187,8 @@ const STROKE_TOKEN_TO_DIRECTION = {
   'PIE': 'left-down', // 嘗試支持撇 (映射為左下)
   'NA': 'right-down',
   'DIAN': 'right-down', // 與捺方向相同
-  'TI': 'right-up',
   'HENGPIE': 'left-down', // 橫撇，遊戲中判定為左下
   'SHUGOU': 'up', // 豎鉤，遊戲中判定為向上
-  'HENGSHUGOU': 'down', // 橫豎鉤，遊戲中判定為向下
   'HENGZHE': 'right-down' // 橫折，映射為右下 (折角方向)
 };
 
@@ -200,8 +198,23 @@ const LEGACY_STROKE_TYPE_TO_TOKEN = {
   vertical: 'SHU',
   throw: 'PIE',
   press: 'NA',
-  rise: 'TI',
   hook: 'SHUGOU',
+};
+
+const RELAXED_TOKEN_FAMILIES = {
+  NA: ['NA', 'DIAN'],
+  DIAN: ['NA', 'DIAN'],
+};
+
+const getRelaxedTokenFamily = (token) => {
+  if (!token) return null;
+  return RELAXED_TOKEN_FAMILIES[token] || null;
+};
+
+const findRelaxedTokenMatch = (inputTokens, targetToken) => {
+  const family = getRelaxedTokenFamily(targetToken);
+  if (!family || !Array.isArray(inputTokens)) return null;
+  return inputTokens.find((token) => family.includes(token)) || null;
 };
 
 const normalizeTargetStrokeToken = (value) => {
@@ -272,7 +285,7 @@ const LEVEL_PROGRESS_STORAGE_KEY = 'radicalLevelProgress';
 const HANZI_DATA_CACHE = new Map();
 
 // 允許的筆劃名稱 (用於篩選字)
-const ALLOWED_STROKES = ['HENG', 'SHU', 'NA', 'DIAN', 'TI', 'HENGPIE', 'SHUGOU', 'HENGSHUGOU', 'HENGZHE', 'PIE'];
+const ALLOWED_STROKES = ['HENG', 'SHU', 'NA', 'DIAN', 'HENGPIE', 'SHUGOU', 'HENGZHE', 'PIE'];
 
 // 部首關卡列表：依常用部首重新整理現有生字，保留原網站的主題式視覺風格。
 const PROFESSION_LEVELS = [
@@ -405,6 +418,16 @@ const PROFESSION_LEVELS = [
           ]
       }
   ];
+
+const HIDDEN_FIRE_CHAR = '燈';
+
+const getVisibleCharsForProfession = (profession, fireSecretUnlocked = false) => {
+  if (!profession?.chars) return [];
+  if (profession.id !== 'fire' || fireSecretUnlocked) {
+    return profession.chars;
+  }
+  return profession.chars.filter((charItem) => charItem.char !== HIDDEN_FIRE_CHAR);
+};
 
 const WON_CROWN_PARTS = [
   {
@@ -692,6 +715,10 @@ const validateCharacterStrokes = (charData) => {
     // 2. 筆劃類型篩選
     for (let stroke of charData.strokes) {
         const type = analyzeStrokeType(stroke);
+
+        if (type !== 'UNKNOWN' && !ALLOWED_STROKES.includes(type)) {
+            return false;
+        }
         
         // 如果識別出是 PIE (撇)，且 PIE 不在 ALLOWED_STROKES 中，則該字無效
         if (type === 'PIE' && !ALLOWED_STROKES.includes('PIE')) {
@@ -763,6 +790,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   const [gameLevelData, setGameLevelData] = useState(null);
   const [isLoadingLevel, setIsLoadingLevel] = useState(false);
   const [completedLevels, setCompletedLevels] = useState({});
+  const [fireSecretUnlocked, setFireSecretUnlocked] = useState(false);
   const completedLevelCount = PROFESSION_LEVELS.filter((item) => completedLevels[item.id]).length;
   const crownAssemblyUnlocked = PROFESSION_LEVELS.length > 0 && completedLevelCount === PROFESSION_LEVELS.length;
   const crownAssemblyCursorIndex = PROFESSION_LEVELS.length;
@@ -1011,6 +1039,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
   const latestImuAssistRef = useRef(null);
   const pendingStrokeRef = useRef(null);
   const pendingStrokeTimerRef = useRef(null);
+  const lastMicrobitButtonRef = useRef({ kind: null, at: 0, gameState: null });
 
   const pulseSuccessStamp = () => {
     successStampRef.current += 1;
@@ -1310,6 +1339,20 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
      setGameState(GAME_STATE.LEVEL_SELECT);
   };
 
+  const toggleHiddenFireChar = () => {
+     const nextUnlocked = !fireSecretUnlocked;
+     setFireSecretUnlocked(nextUnlocked);
+     setCurrentCharIndex(0);
+     setCurrentStrokeIndex(0);
+     setCompletedStrokes([]);
+     setGameLevelData(null);
+     setShowHint(false);
+     clearPronunciationPreview();
+     setFeedback(nextUnlocked ? '已開啟火部隱藏生字「燈」。' : '已隱藏火部生字「燈」。');
+     setFeedbackType('info');
+     playPositiveSfx(nextUnlocked ? 'reward' : 'step');
+  };
+
   const returnToMenu = () => {
      clearPronunciationPreview();
      window.clearTimeout(ceremonyTransitionTimeoutRef.current);
@@ -1395,11 +1438,12 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
      const currentLevel = levelRef.current;
      const nextCharIndex = currentCharIndexRef.current + 1;
      const currentLevelConfig = PROFESSION_LEVELS[currentLevel];
+     const currentLevelChars = getVisibleCharsForProfession(currentLevelConfig, fireSecretUnlocked);
 
      setFeedback(`已跳過「${gameLevelData.char}」，準備下一個生字。`);
      setFeedbackType('info');
 
-     if (!currentLevelConfig || nextCharIndex >= currentLevelConfig.chars.length) {
+     if (!currentLevelConfig || nextCharIndex >= currentLevelChars.length) {
        skipCurrentLevel();
        return;
      }
@@ -1417,7 +1461,16 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
      }, 300);
   };
 
-  const processStrokeInput = async (inputDir) => {
+  const processStrokeInput = async (input) => {
+     const strokeInput = typeof input === 'string'
+       ? { direction: input, inputToken: null, source: 'MANUAL', acceptReason: '' }
+       : {
+           direction: input?.direction || null,
+           inputToken: input?.inputToken || null,
+           source: input?.source || 'RAW',
+           acceptReason: input?.acceptReason || '',
+         };
+     const inputDir = strokeInput.direction;
      if (isAnimatingRef.current) return; // 使用 Ref 進行嚴格鎖定防止重複觸發
      
      // 200ms 防抖
@@ -1436,13 +1489,22 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
         
         const currentIndex = currentStrokeIndexRef.current;
         const targetStroke = testCharacter.strokes[currentIndex];
+        const targetToken = normalizeTargetStrokeToken(targetStroke?.type);
         
         if (!targetStroke) return; // 已完成所有筆劃
 
-        addLog(`測試比對: 輸入=${inputDir}, 目標=${targetStroke.direction}`);
+        const exactMatch = strokeInput.inputToken
+          ? strokeInput.inputToken === targetToken
+          : inputDir === targetStroke.direction;
+        const relaxedMatch = !exactMatch
+          ? findRelaxedTokenMatch(strokeInput.inputToken ? [strokeInput.inputToken] : [], targetToken)
+          : null;
 
-        if (inputDir === targetStroke.direction) {
+        addLog(`測試比對: 輸入=${strokeInput.inputToken || inputDir}, 目標=${targetToken || targetStroke.direction}`);
+
+        if (exactMatch || relaxedMatch) {
             // Correct
+            addLog(exactMatch ? '✅ 精準命中！' : `✅ 近似放行！ (${relaxedMatch} -> ${targetToken})`);
             playPositiveSfx('correct');
             setFeedback('真棒！');
             setFeedbackType('success');
@@ -1469,11 +1531,11 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             }
         } else {
             // Wrong
-            addLog(`❌ 錯誤 (預期: ${targetStroke.direction})`);
-            setFeedback(`方向錯誤 (預期: ${targetStroke.direction})`);
+            addLog(`❌ 錯誤 (預期: ${targetToken || targetStroke.direction})`);
+            setFeedback(`方向錯誤 (預期: ${targetToken || targetStroke.direction})`);
             setFeedbackType('error');
             playErrorSound();
-            setShowPopupHint({ text: '再試一次！', type: 'error' }); // 彈出提示
+            setShowPopupHint({ text: '再試一次吧', type: 'error' }); // 彈出提示
             setTimeout(() => setShowPopupHint(null), 1000);
         }
         return;
@@ -1488,17 +1550,25 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
      const currentIndex = currentStrokeIndexRef.current;
      // const targetStroke = CHARACTERS[currentLevel].strokes[currentIndex]; // 舊代碼
      const targetStroke = gameLevelData ? gameLevelData.strokes[currentIndex] : null; // 使用動態數據
+     const targetToken = normalizeTargetStrokeToken(targetStroke?.type);
      
      if (!targetStroke) {
         addLog(`🚫 無當前筆劃`);
         return;
      }
 
-     addLog(`筆劃比對: 輸入=${inputDir}, 目標=${targetStroke.direction}`);
+     const exactMatch = strokeInput.inputToken
+       ? strokeInput.inputToken === targetToken
+       : inputDir === targetStroke.direction;
+     const relaxedMatch = !exactMatch
+       ? findRelaxedTokenMatch(strokeInput.inputToken ? [strokeInput.inputToken] : [], targetToken)
+       : null;
 
-     if (inputDir === targetStroke.direction) {
+     addLog(`筆劃比對: 輸入=${strokeInput.inputToken || inputDir}, 目標=${targetToken || targetStroke.direction}`);
+
+     if (exactMatch || relaxedMatch) {
        // Success
-       addLog('✅ 筆劃正確！');
+       addLog(exactMatch ? '✅ 精準命中！' : `✅ 近似放行！ (${relaxedMatch} -> ${targetToken})`);
       pulseSuccessStamp();
       triggerCorrectBurst(targetStroke);
       setShowPopupHint({ text: '真棒！', type: 'success' });
@@ -1529,8 +1599,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
          playPositiveSfx('wordComplete');
          setTimeLeft(prev => prev + 30); // 增加30秒
          const currentLevelConfig = PROFESSION_LEVELS[currentLevel];
+         const currentLevelChars = getVisibleCharsForProfession(currentLevelConfig, fireSecretUnlocked);
          const nextCharIndex = currentCharIndexRef.current + 1;
-         const hasNextChar = Boolean(currentLevelConfig?.chars?.[nextCharIndex]);
+         const hasNextChar = Boolean(currentLevelChars?.[nextCharIndex]);
          if (hasNextChar) {
            showWordCelebrationCard();
          }
@@ -1559,7 +1630,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
 
      } else {
        // Fail
-       addLog(`❌ 筆劃錯誤 (預期: ${targetStroke.direction})`);
+       addLog(`❌ 筆劃錯誤 (預期: ${targetToken || targetStroke.direction})`);
        setFeedbackType('error');
        playErrorSound();
        setShowHint(true); // 錯誤後顯示提示
@@ -1750,10 +1821,57 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     }
   }
 
+  function shouldIgnoreMicrobitButton(buttonKind, currentGameState) {
+    const now = Date.now();
+    const lastEvent = lastMicrobitButtonRef.current;
+
+    if (
+      buttonKind === 'NEXT'
+      && lastEvent.kind === 'NEXT'
+      && lastEvent.gameState === currentGameState
+      && now - lastEvent.at < MICROBIT_NEXT_DEDUPE_MS
+    ) {
+      addLog(`🛑 忽略重複 NEXT：${now - lastEvent.at}ms`);
+      return true;
+    }
+
+    if (
+      buttonKind === 'ENTER'
+      && lastEvent.kind === 'ENTER'
+      && lastEvent.gameState === currentGameState
+      && now - lastEvent.at < MICROBIT_ENTER_DEDUPE_MS
+    ) {
+      addLog(`🛑 忽略重複 ENTER：${now - lastEvent.at}ms`);
+      return true;
+    }
+
+    if (
+      buttonKind === 'ENTER'
+      && currentGameState === GAME_STATE.LEVEL_SELECT
+      && lastEvent.kind === 'NEXT'
+      && lastEvent.gameState === GAME_STATE.LEVEL_SELECT
+      && now - lastEvent.at < MICROBIT_ENTER_AFTER_NEXT_GUARD_MS
+    ) {
+      addLog(`🛑 選關頁忽略緊接 NEXT 的 ENTER：${now - lastEvent.at}ms`);
+      return true;
+    }
+
+    lastMicrobitButtonRef.current = {
+      kind: buttonKind,
+      at: now,
+      gameState: currentGameState,
+    };
+    return false;
+  }
+
   function handleMicrobitButton(buttonKind) {
     const currentGameState = gameStateRef.current;
 
     if (currentGameState === GAME_STATE.PLAYING || currentGameState === GAME_STATE.TEST) {
+      return;
+    }
+
+    if ((buttonKind === 'NEXT' || buttonKind === 'ENTER') && shouldIgnoreMicrobitButton(buttonKind, currentGameState)) {
       return;
     }
 
@@ -1852,9 +1970,22 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     }
   }
 
-  const deliverStrokeDirection = (direction, note = '') => {
-    addLog(note ? `👉 識別為: ${direction} (${note})` : `👉 識別為: ${direction}`);
-    processStrokeInputRef.current(direction);
+  const deliverStrokeDirection = (input, note = '') => {
+    const strokeInput = typeof input === 'string'
+      ? { direction: input, inputToken: null, source: 'RAW', acceptReason: note }
+      : {
+          direction: input?.direction || null,
+          inputToken: input?.inputToken || null,
+          source: input?.source || 'RAW',
+          acceptReason: input?.acceptReason || note,
+        };
+    const readableInput = strokeInput.inputToken || strokeInput.direction || '(空)';
+    addLog(
+      strokeInput.acceptReason
+        ? `👉 識別為: ${readableInput} (${strokeInput.acceptReason})`
+        : `👉 識別為: ${readableInput}`
+    );
+    processStrokeInputRef.current(strokeInput);
   };
 
   const flushPendingStroke = (reason = 'timeout') => {
@@ -1877,11 +2008,21 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     if (upgraded) {
       const assist = latestImuAssistRef.current;
       addLog(`🩹 IMU 補強撇成功: ${pending.normalizedToken} -> left-down (score=${assist?.pieScore ?? 0})`);
-      deliverStrokeDirection('left-down', `IMU補強/${reason}`);
+      deliverStrokeDirection({
+        direction: 'left-down',
+        inputToken: 'PIE',
+        source: 'IMU_ASSIST',
+        acceptReason: `IMU補強/${reason}`,
+      });
       return;
     }
 
-    deliverStrokeDirection(pending.direction, reason === 'timeout' ? 'CreateAI原判定' : `CreateAI原判定/${reason}`);
+    deliverStrokeDirection({
+      direction: pending.direction,
+      inputToken: pending.normalizedToken,
+      source: 'RAW_TOKEN',
+      acceptReason: reason === 'timeout' ? 'CreateAI原判定' : `CreateAI原判定/${reason}`,
+    });
   };
 
   const handleMicrobitData = (event) => {
@@ -1925,7 +2066,12 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             clearPendingStrokeTimer();
             pendingStrokeRef.current = null;
             addLog(`🩹 IMU 補強撇成功: ${pending.normalizedToken} -> left-down (score=${imuAssist.pieScore})`);
-            deliverStrokeDirection('left-down', 'IMU即時補強');
+            deliverStrokeDirection({
+              direction: 'left-down',
+              inputToken: 'PIE',
+              source: 'IMU_ASSIST',
+              acceptReason: 'IMU即時補強',
+            });
           }
         }
         continue;
@@ -1975,9 +2121,36 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
 
         if (candidateStroke.tokens.includes(targetToken)) {
           addLog(`🎯 候選命中目標: ${targetToken}`);
-          deliverStrokeDirection(targetDirection, `CAND命中/${targetToken}`);
+          deliverStrokeDirection({
+            direction: targetDirection,
+            inputToken: targetToken,
+            source: 'CAND_EXACT',
+            acceptReason: `精準命中/CAND/${targetToken}`,
+          });
         } else {
-          addLog(`❌ 候選未命中目標: ${candidateStroke.tokens.join(', ') || '(空)'} / 目標=${targetToken}`);
+          const relaxedToken = findRelaxedTokenMatch(candidateStroke.tokens, targetToken);
+          if (relaxedToken) {
+            addLog(`🎯 候選近似命中: ${relaxedToken} -> ${targetToken}`);
+            deliverStrokeDirection({
+              direction: targetDirection,
+              inputToken: relaxedToken,
+              source: 'CAND_RELAXED',
+              acceptReason: `近似放行/CAND/${relaxedToken}->${targetToken}`,
+            });
+          } else {
+            addLog(`❌ 候選未命中目標: ${candidateStroke.tokens.join(', ') || '(空)'} / 目標=${targetToken}`);
+            setFeedback(`方向錯誤 (預期: ${targetToken || targetDirection})`);
+            setFeedbackType('error');
+            playErrorSound();
+            setShowPopupHint({ text: '再試一次吧', type: 'error' });
+            setTimeout(() => setShowPopupHint(null), 1000);
+            setShowHint(true);
+
+            if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
+            hintTimeoutRef.current = setTimeout(() => {
+              setShowHint(false);
+            }, 3000);
+          }
         }
         continue;
       }
@@ -2007,7 +2180,12 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           }, 180);
           addLog(`⏳ 等待 IMU 撇輔助: ${normalizedToken}`);
         } else {
-          deliverStrokeDirection(direction);
+          deliverStrokeDirection({
+            direction,
+            inputToken: normalizedToken,
+            source: 'RAW_TOKEN',
+            acceptReason: '精準命中/RAW',
+          });
         }
       } else {
         console.warn(`無法識別指令: "${data}" (Length: ${data.length})`);
@@ -2244,7 +2422,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           case 'grain':
               if (['DIAN', 'NA'].includes(strokeType)) return `播下種子 (${strokeName})`;
               if (['HENG', 'SHU'].includes(strokeType)) return `築起田埂 (${strokeName})`;
-              if (['PIE', 'TI'].includes(strokeType)) return `稻穗垂下 (${strokeName})`;
+              if (['PIE', 'HENGPIE'].includes(strokeType)) return `稻穗垂下 (${strokeName})`;
               return `辛勤耕耘 (${strokeName})`;
           case 'fire':
               if (['DIAN'].includes(strokeType)) return `點燃爐火 (${strokeName})`;
@@ -2274,9 +2452,10 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     }
 
     const profession = PROFESSION_LEVELS[profIdx];
+    const professionChars = getVisibleCharsForProfession(profession, fireSecretUnlocked);
     
     // 檢查字索引是否超出 -> 完成本部首關卡
-    if (charIdx >= profession.chars.length) {
+    if (charIdx >= professionChars.length) {
         if (!isStaleRequest()) {
           const time = stopLevelTimer();
           setLastLevelDuration(time);
@@ -2286,7 +2465,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
         return;
     }
 
-    const charObj = profession.chars[charIdx];
+    const charObj = professionChars[charIdx];
     const char = charObj.char;
     
     setIsLoadingLevel(true);
@@ -2318,10 +2497,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                case 'SHU': direction = 'down'; break;
                case 'NA': direction = 'right-down'; break;
                case 'DIAN': direction = 'right-down'; break;
-               case 'TI': direction = 'right-up'; break;
                case 'HENGPIE': direction = 'left-down'; break;
                case 'SHUGOU': direction = 'up'; break;
-               case 'HENGSHUGOU': direction = 'down'; break;
                case 'HENGZHE': direction = 'right-down'; break;
                case 'PIE': direction = 'left-down'; break; 
                default: direction = 'unknown';
@@ -2477,10 +2654,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
       'PIE': '撇',
       'NA': '捺',
       'DIAN': '點',
-      'TI': '提',
       'HENGPIE': '橫撇',
       'SHUGOU': '豎鉤',
-      'HENGSHUGOU': '橫豎鉤',
       'HENGZHE': '橫折',
       'UNKNOWN': '筆劃'
   };
@@ -3014,6 +3189,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {PROFESSION_LEVELS.map((levelItem, index) => {
               const theme = getProfessionTheme(levelItem.id);
+              const visibleChars = getVisibleCharsForProfession(levelItem, fireSecretUnlocked);
               const isCompleted = Boolean(completedLevels[levelItem.id]);
               const isSelected = index === levelSelectCursor;
 
@@ -3039,7 +3215,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">生字 {levelItem.chars.length}</span>
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">生字 {visibleChars.length}</span>
                     <span className={`px-2.5 py-1 rounded-full ${isCompleted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
                       {isCompleted ? '通關' : '未通關'}
                     </span>
@@ -3290,19 +3466,34 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
           <div className="mb-6 text-8xl filter drop-shadow-md">🏆</div>
           <h2 className="text-3xl font-bold mb-4 text-amber-600 font-kai">狀元及第！</h2>
           <div className="mb-8 rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 md:p-6 shadow-inner">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {WON_CROWN_PARTS.map((part) => (
+            <div className="mb-4 flex items-center justify-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/85 px-4 py-2 text-xs font-bold tracking-[0.28em] text-amber-700 shadow-sm">
+                <span className="text-base leading-none">✦</span>
+                四界配件
+                <span className="text-base leading-none">✦</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              {WON_CROWN_PARTS.map((part, index) => (
                 <div
                   key={part.id}
-                  className={`rounded-2xl border px-4 py-4 text-left shadow-sm ${part.shellClassName}`}
+                  className={`crown-part-card crown-part-card--${index + 1} relative overflow-hidden rounded-[1.75rem] border px-4 py-4 text-left shadow-sm ${part.shellClassName}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`rounded-2xl p-2.5 ${part.iconClassName}`}>
+                  <div className="absolute right-3 top-3 text-[10px] font-bold tracking-[0.22em] text-amber-600/80">
+                    已收集
+                  </div>
+                  <div className="relative z-10 flex items-start gap-3">
+                    <div className={`rounded-2xl p-2.5 shadow-sm ring-1 ring-slate-200/80 ${part.iconClassName}`}>
                       {part.icon}
                     </div>
                     <div>
                       <div className="text-xs font-bold tracking-[0.2em] opacity-70">{part.source}</div>
-                      <div className="mt-1 text-base font-bold">{part.name}</div>
+                      <div className="mt-1 text-base font-bold leading-tight">{part.name}</div>
+                      <div className="mt-3 flex items-center gap-1.5 text-amber-500/80">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                        <span className="h-1.5 w-6 rounded-full bg-gradient-to-r from-amber-200 to-amber-400" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3383,7 +3574,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
         </div>
       )}
 
-       {gameState === GAME_STATE.LEVEL_INTRO && PROFESSION_LEVELS[level] && (
+      {gameState === GAME_STATE.LEVEL_INTRO && PROFESSION_LEVELS[level] && (
         <div className={`p-6 md:p-8 rounded-[2.5rem] shadow-2xl text-center max-w-md w-full border-4 ${getProfessionTheme(PROFESSION_LEVELS[level].id).bg} ${getProfessionTheme(PROFESSION_LEVELS[level].id).border} animate-fade-in-up flex flex-col h-[min(82svh,720px)] overflow-hidden`}>
             <div className="text-6xl md:text-7xl mb-4 animate-bounce filter drop-shadow-md">
                 {PROFESSION_LEVELS[level].icon}
@@ -3396,7 +3587,7 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                 部首：{PROFESSION_LEVELS[level].radicalLabel}
               </span>
               <span className="px-4 py-1.5 rounded-full bg-white/70 text-slate-700 font-bold">
-                生字：{PROFESSION_LEVELS[level].chars.length} 個
+                生字：{getVisibleCharsForProfession(PROFESSION_LEVELS[level], fireSecretUnlocked).length} 個
               </span>
               {completedLevels[PROFESSION_LEVELS[level].id] && (
                 <span className="px-4 py-1.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold">
@@ -3417,6 +3608,18 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
                     className="w-full h-full object-contain"
                   />
                 ) : null}
+                {PROFESSION_LEVELS[level].id === 'fire' && (
+                  <button
+                    type="button"
+                    onClick={toggleHiddenFireChar}
+                    title={fireSecretUnlocked ? '關閉隱藏生字' : '開啟隱藏生字'}
+                    className={`absolute bottom-3 right-3 h-4 w-4 rounded-full border transition-all ${
+                      fireSecretUnlocked
+                        ? 'border-amber-300 bg-amber-400/80 opacity-75 shadow-md shadow-amber-200/80'
+                        : 'border-slate-400/60 bg-white/25 opacity-20 hover:opacity-55'
+                    }`}
+                  />
+                )}
             </div>
 
             <div className="mt-auto flex flex-col sm:flex-row gap-3">
