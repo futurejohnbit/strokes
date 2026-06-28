@@ -202,6 +202,8 @@ const LEGACY_STROKE_TYPE_TO_TOKEN = {
 };
 
 const RELAXED_TOKEN_FAMILIES = {
+  HENGPIE: ['HENGPIE', 'HENGZHE'],
+  HENGZHE: ['HENGPIE', 'HENGZHE'],
   NA: ['NA', 'DIAN'],
   DIAN: ['NA', 'DIAN'],
 };
