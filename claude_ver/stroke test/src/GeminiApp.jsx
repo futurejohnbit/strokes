@@ -422,6 +422,7 @@ const PROFESSION_LEVELS = [
   ];
 
 const HIDDEN_FIRE_CHAR = '燈';
+const SUCCESS_POPUP_MESSAGES = ['真棒！', '完美！', '太厲害了！'];
 
 const getVisibleCharsForProfession = (profession, fireSecretUnlocked = false) => {
   if (!profession?.chars) return [];
@@ -1053,6 +1054,11 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
     return successStampRef.current;
   };
 
+  const getNextSuccessMessage = () => {
+    const stamp = pulseSuccessStamp();
+    return SUCCESS_POPUP_MESSAGES[(stamp - 1) % SUCCESS_POPUP_MESSAGES.length];
+  };
+
   const triggerCorrectBurst = (targetStroke) => {
     window.clearTimeout(correctBurstTimeoutRef.current);
     const burstPoint = targetStroke?.medians?.[targetStroke.medians.length - 1] || [512, 420];
@@ -1513,9 +1519,10 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             // Correct
             addLog(exactMatch ? '✅ 精準命中！' : `✅ 近似放行！ (${relaxedMatch} -> ${targetToken})`);
             playPositiveSfx('correct');
-            setFeedback('真棒！');
+            const successMessage = getNextSuccessMessage();
+            setFeedback(successMessage);
             setFeedbackType('success');
-            setShowPopupHint({ text: '真棒！', type: 'success' });
+            setShowPopupHint({ text: successMessage, type: 'success' });
             setTimeout(() => setShowPopupHint(null), 1000);
             
             // 動畫開始
@@ -1542,8 +1549,8 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             setFeedback(`方向錯誤 (預期: ${targetToken || targetStroke.direction})`);
             setFeedbackType('error');
             playErrorSound();
-            setShowPopupHint({ text: '再試一次吧', type: 'error' }); // 彈出提示
-            setTimeout(() => setShowPopupHint(null), 1000);
+            setShowPopupHint(null);
+            setShowHint(false);
         }
         return;
      }
@@ -1576,11 +1583,11 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
      if (exactMatch || relaxedMatch) {
        // Success
        addLog(exactMatch ? '✅ 精準命中！' : `✅ 近似放行！ (${relaxedMatch} -> ${targetToken})`);
-      pulseSuccessStamp();
+      const successMessage = getNextSuccessMessage();
       triggerCorrectBurst(targetStroke);
-      setShowPopupHint({ text: '真棒！', type: 'success' });
+      setShowPopupHint({ text: successMessage, type: 'success' });
       setTimeout(() => setShowPopupHint(null), 1000);
-      setFeedback('真棒！');
+      setFeedback(successMessage);
        setFeedbackType('success');
        playPositiveSfx('correct');
 
@@ -1640,12 +1647,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
        addLog(`❌ 筆劃錯誤 (預期: ${targetToken || targetStroke.direction})`);
        setFeedbackType('error');
        playErrorSound();
-       setShowHint(true); // 錯誤後顯示提示
-       
        if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
-       hintTimeoutRef.current = setTimeout(() => {
-           setShowHint(false);
-       }, 3000);
+      setShowHint(false);
+      setShowPopupHint(null);
      }
    };
 
@@ -2149,14 +2153,9 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             setFeedback(`方向錯誤 (預期: ${targetToken || targetDirection})`);
             setFeedbackType('error');
             playErrorSound();
-            setShowPopupHint({ text: '再試一次吧', type: 'error' });
-            setTimeout(() => setShowPopupHint(null), 1000);
-            setShowHint(true);
-
             if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
-            hintTimeoutRef.current = setTimeout(() => {
-              setShowHint(false);
-            }, 3000);
+            setShowPopupHint(null);
+            setShowHint(false);
           }
         }
         continue;
