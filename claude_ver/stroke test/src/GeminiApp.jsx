@@ -1548,7 +1548,6 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             addLog(`❌ 錯誤 (預期: ${targetToken || targetStroke.direction})`);
             setFeedback(`方向錯誤 (預期: ${targetToken || targetStroke.direction})`);
             setFeedbackType('error');
-            playErrorSound();
             setShowPopupHint(null);
             setShowHint(false);
         }
@@ -1646,7 +1645,6 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
        // Fail
        addLog(`❌ 筆劃錯誤 (預期: ${targetToken || targetStroke.direction})`);
        setFeedbackType('error');
-       playErrorSound();
        if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
       setShowHint(false);
       setShowPopupHint(null);
@@ -2152,7 +2150,6 @@ const GeminiApp = ({ onPulseSfx, musicEnabled = false, onToggleMusic, onAudioSce
             addLog(`❌ 候選未命中目標: ${candidateStroke.tokens.join(', ') || '(空)'} / 目標=${targetToken}`);
             setFeedback(`方向錯誤 (預期: ${targetToken || targetDirection})`);
             setFeedbackType('error');
-            playErrorSound();
             if (hintTimeoutRef.current) clearTimeout(hintTimeoutRef.current);
             setShowPopupHint(null);
             setShowHint(false);
